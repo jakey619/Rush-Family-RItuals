@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rush Family Rituals</title>
+<style>
+  :root{
+    --bg:#0f0b18;
+    --panel:#1a1028;
+    --card:#24143a;
+    --border:#3a245b;
+    --text:#f7f1ff;
+    --muted:#cbb6ea;
+    --purple:#6a0dad;      /* Royal Purple */
+    --gold:#d4af37;        /* Old Gold */
+    --gold2:#f4d26a;
+    --danger:#d94848;
+    --shadow: 0 10px 22px rgba(0,0,0,.35);
+    --radius:18px;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    background: radial-gradient(1100px 700px at 10% 10%, rgba(106,13,173,.35), transparent 55%),
+                radial-gradient(900px 600px at 90% 0%, rgba(212,175,55,.25), transparent 60%),
+                radial-gradient(900px 600px at 80% 100%, rgba(106,13,173,.22), transparent 55%),
+                var(--bg);
+    color:var(--text);
+    padding:20px;
+  }
+
+  .wrap{max-width:1100px;margin:0 auto}
+  .top{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .brand{
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .brand h1{
+    margin:0; font-size:22px; letter-spacing:.2px;
+  }
+  .sub{color:var(--muted); font-size:12px}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 10px; border-radius:999px;
+    background: rgba(212,175,55,.14);
+    border:1px solid rgba(212,175,55,.35);
+    color: var(--gold2);
+    font-weight:800; font-size:12px;
+  }
+
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .grid{display:grid; gap:14px}
+  .grid.cards{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    box-shadow: var(--shadow);
+  }
+
+  .toolbar{
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  }
+
+  select,input[type="date"], input[type="text"], textarea{
+    background: rgba(255,255,255,.06);
+    border:1px solid rgba(203,182,234,.25);
+    color: var(--text);
+    border-radius:14px;
+    padding:10px 12px;
+    outline:none;
+  }
+  select{padding-right:34px}
+  textarea{width:100%; resize:vertical}
+
+  .btn{
+    border:1px solid transparent;
+    background: linear-gradient(180deg, rgba(212,175,55,.95), rgba(212,175,55,.75));
+    color:#1a1028;
+    border-radius:14px;
+    padding:10px 12px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  .btn.secondary{
+    background: rgba(255,255,255,.06);
+    color: var(--text);
+    border:1px solid rgba(203,182,234,.25);
+  }
+  .btn.danger{
+    background: rgba(217,72,72,.18);
+    color:#ffd6d6;
+    border:1px solid rgba(217,72,72,.45);
+  }
+  .btn:disabled{opacity:.55; cursor:not-allowed}
+
+  .sectionTitle{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .sectionTitle h2{margin:0; font-size:16px}
+  .mini{font-size:12px; color:var(--muted)}
+
+  .bar{
+    height:10px; background: rgba(255,255,255,.06);
+    border-radius:999px; overflow:hidden;
+    border:1px solid rgba(203,182,234,.18);
+  }
+  .bar > div{
+    height:10px;
+    background: linear-gradient(90deg, rgba(106,13,173,.95), rgba(212,175,55,.95));
+    width:0%;
+  }
+
+  .clickcard{
+    padding:14px;
+    border-radius:16px;
+    border:1px solid rgba(203,182,234,.22);
+    background: rgba(255,255,255,.03);
+    cursor:pointer;
+    transition: transform .08s ease, border-color .08s ease;
+  }
+  .clickcard:hover{
+    transform: translateY(-2px);
+    border-color: rgba(212,175,55,.5);
+  }
+
+  .checkrow{
+    display:flex; align-items:center; gap:10px;
+    padding:8px 0;
+  }
+  .checkrow input{transform:scale(1.15)}
+  .split{
+    display:grid; gap:12px;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  }
+  .divider{
+    height:1px; background: rgba(203,182,234,.18);
+    margin:14px 0;
+  }
+  .badge{
+    display:inline-flex; align-items:center;
+    padding:4px 10px; border-radius:999px;
+    font-size:12px; font-weight:900;
+    border:1px solid rgba(203,182,234,.25);
+    background: rgba(255,255,255,.05);
+    color: var(--text);
+  }
+  .badge.success{border-color: rgba(212,175,55,.6); background: rgba(212,175,55,.14); color: var(--gold2)}
+  .badge.warn{border-color: rgba(244,210,106,.5); background: rgba(244,210,106,.12); color: var(--gold2)}
+  .badge.neutral{opacity:.9}
+
+  .logitem{
+    display:flex; justify-content:space-between; gap:10px;
+    border:1px solid rgba(203,182,234,.22);
+    background: rgba(255,255,255,.03);
+    border-radius:14px;
+    padding:10px 12px;
+  }
+
+  .footerNote{
+    font-size:12px; color:var(--muted);
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <h1>Rush Family Rituals</h1>
+      <div class="sub">Offline routine tracker • Morning + Night • Meds/Vitamins • Hydration</div>
+      <div class="row" style="margin-top:8px;">
+        <span class="pill">Offline-only • Saves on this device</span>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <label class="mini" style="font-weight:900;">Date</label>
+      <input id="datePicker" type="date" />
+      <label class="mini" style="font-weight:900;">Profile</label>
+      <select id="profileSelect"></select>
+      <button id="btnDashboard" class="btn secondary">Overview</button>
+      <button id="btnDownloadApp" class="btn">Download App File</button>
+    </div>
+  </div>
+
+  <div id="viewDashboard" class="grid">
+    <div class="card">
+      <div class="sectionTitle">
+        <div>
+          <h2>Family Overview</h2>
+          <div class="mini">Tap a family member to update checklists for the selected date.</div>
+        </div>
+        <button id="btnExport" class="btn secondary">Export Day Summary</button>
+      </div>
+
+      <div id="dashGrid" class="grid cards"></div>
+
+      <div class="divider"></div>
+      <div>
+        <div style="font-weight:900; margin-bottom:6px;">3-Question Daily Focus</div>
+        <div class="mini" style="line-height:1.7;">
+          <b>1)</b> Top 3 priorities • <b>2)</b> Possible distractions • <b>3)</b> Goal / identity
+        </div>
+      </div>
+    </div>
+
+    <div class="card footerNote">
+      <b>Sharing tip:</b> Use <b>Download App File</b> to save a copy you can email/text to a family member.
+      Everyone’s progress is stored locally on their device in this version.
+    </div>
+  </div>
+
+  <div id="viewPerson" class="grid" style="display:none;">
+    <div class="card">
+      <div class="sectionTitle">
+        <div>
+          <h2 id="personTitle">Person</h2>
+          <div class="mini" id="personSubtitle">Update routines for today</div>
+        </div>
+        <div class="row">
+          <button id="btnBack" class="btn secondary">Back</button>
+          <button id="btnReset" class="btn danger">Reset day</button>
+        </div>
+      </div>
+
+      <div class="row" style="gap:8px;">
+        <button id="tabMorning" class="btn">Morning</button>
+        <button id="tabNight" class="btn secondary">Night</button>
+        <button id="tabMeds" class="btn secondary">Meds/Vitamins</button>
+        <button id="tabHydration" class="btn secondary">Hydration</button>
+      </div>
+    </div>
+
+    <div id="panelRoutine" class="card">
+      <div class="sectionTitle">
+        <div>
+          <h2 id="routineTitle">Morning Routine</h2>
+          <div class="mini" id="routineSubtitle">Smooth, calm, on-time</div>
+        </div>
+        <span id="routineBadge" class="badge neutral">0%</span>
+      </div>
+      <div class="bar"><div id="routineBar"></div></div>
+      <div id="taskList" style="margin-top:12px;"></div>
+
+      <div class="divider"></div>
+
+      <div style="font-weight:900; margin-bottom:8px;">Daily Focus</div>
+      <div class="split">
+        <div>
+          <div class="mini" style="font-weight:900; margin-bottom:6px;">Top 3 Priorities</div>
+          <input id="p1" type="text" placeholder="Priority #1" />
+          <div style="height:8px;"></div>
+          <input id="p2" type="text" placeholder="Priority #2" />
+          <div style="height:8px;"></div>
+          <input id="p3" type="text" placeholder="Priority #3" />
+        </div>
+
+        <div>
+          <div class="mini" style="font-weight:900; margin-bottom:6px;">Possible Distraction</div>
+          <textarea id="distraction" rows="4" placeholder="What could throw me off today?"></textarea>
+        </div>
+
+        <div>
+          <div class="mini" style="font-weight:900; margin-bottom:6px;">Goal / Identity</div>
+          <textarea id="goal" rows="4" placeholder="What kind of teammate/student/person will I be today?"></textarea>
+        </div>
+      </div>
+
+      <div id="completedAt" class="mini" style="margin-top:12px;"></div>
+    </div>
+
+    <div id="panelMeds" class="card" style="display:none;">
+      <div class="sectionTitle">
+        <div>
+          <h2>Meds & Vitamins</h2>
+          <div class="mini">Quick tracking (AM/PM). Customize names anytime.</div>
+        </div>
+        <span id="medsBadge" class="badge neutral">0%</span>
+      </div>
+      <div class="bar"><div id="medsBar"></div></div>
+
+      <div class="divider"></div>
+
+      <div class="split">
+        <div>
+          <div style="font-weight:900; margin-bottom:6px;">Morning</div>
+          <div id="medsMorningList"></div>
+        </div>
+        <div>
+          <div style="font-weight:900; margin-bottom:6px;">Night</div>
+          <div id="medsNightList"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="mini" style="font-weight:900; margin-bottom:6px;">Notes (optional)</div>
+      <textarea id="medsNotes" rows="3" placeholder="e.g., 'Took with food', 'Refill soon', etc."></textarea>
+    </div>
+
+    <div id="panelHydration" class="card" style="display:none;">
+      <div class="sectionTitle">
+        <div>
+          <h2>Hydration</h2>
+          <div class="mini">Track ounces. Quick add + log.</div>
+        </div>
+        <span id="hydBadge" class="badge neutral">0%</span>
+      </div>
+      <div class="bar"><div id="hydBar"></div></div>
+      <div id="hydSummary" class="mini" style="margin-top:8px;"></div>
+
+      <div class="divider"></div>
+
+      <div class="split">
+        <div>
+          <div class="mini" style="font-weight:900; margin-bottom:6px;">Daily goal (oz)</div>
+          <input id="hydGoal" type="text" inputmode="numeric" placeholder="e.g., 64" />
+          <div class="mini" style="margin-top:8px;">Tip: heavier training days → higher goal.</div>
+        </div>
+        <div>
+          <div class="mini" style="font-weight:900; margin-bottom:6px;">Quick add</div>
+          <div class="row">
+            <button class="btn secondary" data-add="8">+8</button>
+            <button class="btn secondary" data-add="12">+12</button>
+            <button class="btn secondary" data-add="16">+16</button>
+            <button class="btn secondary" data-add="20">+20</button>
+          </div>
+          <div style="margin-top:10px;">
+            <button id="btnUndoWater" class="btn danger">Undo last</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div style="font-weight:900; margin-bottom:8px;">Today’s water log</div>
+      <div id="hydLog" class="grid" style="gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const LS_KEY = "rush_family_rituals_offline_v2";
+  const DEFAULT_PROFILES = [
+    { id: "robert", name: "Robert" },
+    { id: "karimah", name: "Karimah" },
+    { id: "tre", name: "Tre" },
+    { id: "anaya", name: "Anaya" },
+  ];
+
+  const MORNING_TASKS = [
+    { id: "make_bed", label: "Make bed" },
+    { id: "activation", label: "Activation (8 min)" },
+    { id: "shower_hygiene", label: "Shower / Hygiene" },
+    { id: "hair_groom", label: "Hair / Grooming" },
+    { id: "get_dressed", label: "Get dressed (uniform last)" },
+    { id: "breakfast", label: "Eat breakfast" },
+    { id: "bible", label: "Bible lesson (phone allowed during breakfast)" },
+    { id: "brush_teeth", label: "Brush teeth (after eating)" },
+    { id: "pack_check", label: "Backpack / gear check" },
+    { id: "water_bottle", label: "Water bottle grabbed" },
+  ];
+
+  const NIGHT_TASKS = [
+    { id: "pack_bag", label: "Pack backpack (homework inside)" },
+    { id: "sports_gear", label: "Pack sports gear (shoes/braces/etc.)" },
+    { id: "lay_out", label: "Lay out clothes (incl. socks/undergarments)" },
+    { id: "water_fill", label: "Fill water bottle & put in fridge" },
+    { id: "charge", label: "Devices charging" },
+    { id: "alarm", label: "Alarm set" },
+    { id: "recovery", label: "Recovery / stretch (5–10 min)" },
+    { id: "wind_down", label: "Wind down (no scrolling 30 min before bed)" },
+  ];
+
+  // Simple meds/vitamins list (customizable)
+  // "using the stuff you already know" → we know meds/vitamins are part of the routine but not exact names,
+  // so we provide practical defaults you can rename.
+  const DEFAULT_MEDS = {
+    morning: [
+      { id: "am_meds", label: "AM medication" },
+      { id: "am_vitamins", label: "AM vitamins" },
+      { id: "am_allergy", label: "AM allergy med (if needed)" },
+    ],
+    night: [
+      { id: "pm_meds", label: "PM medication" },
+      { id: "pm_vitamins", label: "PM vitamins" },
+      { id: "pm_recovery", label: "Recovery supplement (if used)" },
+    ]
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const safeParse = (s, f) => { try { return JSON.parse(s); } catch { return f; } };
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  const todayKey = (d=new Date()) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const nowISO = () => new Date().toISOString();
+
+  function makeEmptyDay(){
+    const tasksMorning = Object.fromEntries(MORNING_TASKS.map(t=>[t.id,false]));
+    const tasksNight   = Object.fromEntries(NIGHT_TASKS.map(t=>[t.id,false]));
+    const medsMorning  = Object.fromEntries(DEFAULT_MEDS.morning.map(m=>[m.id,false]));
+    const medsNight    = Object.fromEntries(DEFAULT_MEDS.night.map(m=>[m.id,false]));
+    return {
+      morning: { tasks: tasksMorning, notes: { priorities:["","",""], distraction:"", goal:"" }, completedAt:null },
+      night:   { tasks: tasksNight,   notes: { priorities:["","",""], distraction:"", goal:"" }, completedAt:null },
+      meds:    { morning: medsMorning, night: medsNight, notes:"" },
+      hydration: { goalOz:64, entries:[], totalOz:0 },
+    };
+  }
+
+  function completion(obj){
+    const vals = Object.values(obj||{});
+    if(!vals.length) return {done:false,pct:0};
+    const doneCount = vals.filter(Boolean).length;
+    const pct = Math.round((doneCount/vals.length)*100);
+    return {done: doneCount===vals.length, pct};
+  }
+
+  function loadState(){
+    const raw = localStorage.getItem(LS_KEY);
+    const s = raw ? safeParse(raw, null) : null;
+    if(!s || typeof s !== "object") return { profiles: DEFAULT_PROFILES, data:{} };
+    if(!Array.isArray(s.profiles) || !s.profiles.length) s.profiles = DEFAULT_PROFILES;
+    if(!s.data || typeof s.data !== "object") s.data = {};
+    return s;
+  }
+  function saveState(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
+
+  let state = loadState();
+  let selectedProfileId = state.profiles[0]?.id || "robert";
+  let date = todayKey();
+  let view = "dashboard"; // dashboard | person
+  let tab = "morning"; // morning | night | meds | hydration
+
+  function ensureDay(profileId, dayKey){
+    if(!state.data[profileId]) state.data[profileId] = {};
+    if(!state.data[profileId][dayKey]) state.data[profileId][dayKey] = makeEmptyDay();
+  }
+
+  function currentProfile(){
+    return state.profiles.find(p=>p.id===selectedProfileId) || state.profiles[0];
+  }
+  function dayData(){
+    ensureDay(selectedProfileId, date);
+    return state.data[selectedProfileId][date];
+  }
+
+  function setBadge(el, pct){
+    el.textContent = `${pct}%`;
+    el.className = "badge " + (pct===100 ? "success" : (pct>=50 ? "warn" : "neutral"));
+  }
+
+  function show(which){
+    view = which;
+    $("viewDashboard").style.display = which==="dashboard" ? "grid" : "none";
+    $("viewPerson").style.display = which==="person" ? "grid" : "none";
+  }
+
+  function setTab(next){
+    tab = next;
+    $("tabMorning").className = "btn" + (tab==="morning" ? "" : " secondary");
+    $("tabNight").className   = "btn" + (tab==="night" ? "" : " secondary");
+    $("tabMeds").className    = "btn" + (tab==="meds" ? "" : " secondary");
+    $("tabHydration").className = "btn" + (tab==="hydration" ? "" : " secondary");
+
+    $("panelRoutine").style.display = (tab==="morning" || tab==="night") ? "block" : "none";
+    $("panelMeds").style.display = tab==="meds" ? "block" : "none";
+    $("panelHydration").style.display = tab==="hydration" ? "block" : "none";
+
+    if(tab==="meds") renderMeds();
+    else if(tab==="hydration") renderHydration();
+    else renderRoutine();
+  }
+
+  function renderProfileDropdown(){
+    const sel = $("profileSelect");
+    sel.innerHTML = "";
+    state.profiles.forEach(p=>{
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+    sel.value = selectedProfileId;
+  }
+
+  function renderDashboard(){
+    renderProfileDropdown();
+
+    const grid = $("dashGrid");
+    grid.innerHTML = "";
+    state.profiles.forEach(p=>{
+      ensureDay(p.id, date);
+      const d = state.data[p.id][date];
+
+      const m = completion(d.morning.tasks);
+      const n = completion(d.night.tasks);
+      const medsMorning = completion(d.meds.morning);
+      const medsNight = completion(d.meds.night);
+      const medsPct = Math.round((medsMorning.pct + medsNight.pct)/2);
+      const hGoal = Number(d.hydration.goalOz)||0;
+      const hTotal = Number(d.hydration.totalOz)||0;
+      const hPct = hGoal>0 ? clamp(Math.round((hTotal/hGoal)*100),0,100) : 0;
+
+      const doneAll = (m.done && n.done && medsMorning.done && medsNight.done && (hPct>=100 || hGoal===0));
+      const inProg = (m.pct+n.pct+medsPct+hPct) > 0;
+
+      const card = document.createElement("div");
+      card.className = "clickcard";
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between;">
+          <div style="font-weight:900; font-size:16px;">${p.name}</div>
+          <span class="badge ${doneAll ? "success" : (inProg ? "warn" : "neutral")}">
+            ${doneAll ? "Complete" : (inProg ? "In progress" : "Not started")}
+          </span>
+        </div>
+
+        <div style="margin-top:10px; display:grid; gap:10px;">
+          <div>
+            <div class="row" style="justify-content:space-between;"><span class="mini">Morning</span><span class="mini">${m.pct}%</span></div>
+            <div class="bar"><div style="width:${m.pct}%"></div></div>
+          </div>
+          <div>
+            <div class="row" style="justify-content:space-between;"><span class="mini">Night</span><span class="mini">${n.pct}%</span></div>
+            <div class="bar"><div style="width:${n.pct}%"></div></div>
+          </div>
+          <div>
+            <div class="row" style="justify-content:space-between;"><span class="mini">Meds/Vitamins</span><span class="mini">${medsPct}%</span></div>
+            <div class="bar"><div style="width:${medsPct}%"></div></div>
+          </div>
+          <div>
+            <div class="row" style="justify-content:space-between;"><span class="mini">Hydration</span><span class="mini">${hPct}%</span></div>
+            <div class="bar"><div style="width:${hPct}%"></div></div>
+            <div class="mini" style="margin-top:6px;">${hTotal} oz / ${hGoal} oz</div>
+          </div>
+        </div>
+      `;
+      card.addEventListener("click", ()=>{
+        selectedProfileId = p.id;
+        $("profileSelect").value = p.id;
+        renderPerson();
+        show("person");
+      });
+      grid.appendChild(card);
+    });
+
+    saveState(state);
+  }
+
+  function renderPerson(){
+    renderProfileDropdown();
+    const prof = currentProfile();
+    ensureDay(prof.id, date);
+
+    $("personTitle").textContent = prof.name;
+    $("personSubtitle").textContent = `Update routines for ${date}`;
+
+    // default tab to morning when opening
+    setTab(tab);
+  }
+
+  function renderRoutine(){
+    const d = dayData();
+    const which = tab; // morning or night
+    const tasks = which==="morning" ? MORNING_TASKS : NIGHT_TASKS;
+
+    $("routineTitle").textContent = which==="morning" ? "Morning Routine" : "Night Routine";
+    $("routineSubtitle").textContent = which==="morning" ? "7:30 AM departure flow" : "Prep tomorrow so mornings are calm";
+
+    const comp = completion(d[which].tasks);
+    setBadge($("routineBadge"), comp.pct);
+    $("routineBar").style.width = `${comp.pct}%`;
+
+    const list = $("taskList");
+    list.innerHTML = "";
+    tasks.forEach(t=>{
+      const row = document.createElement("label");
+      row.className = "checkrow";
+      const cb = document.createElement("input");
+      cb.type="checkbox";
+      cb.checked = !!d[which].tasks[t.id];
+      cb.addEventListener("change", ()=>{
+        d[which].tasks[t.id] = cb.checked;
+        const c2 = completion(d[which].tasks);
+        d[which].completedAt = c2.done ? nowISO() : null;
+        saveState(state);
+        renderRoutine();
+        renderDashboard();
+      });
+      const sp = document.createElement("span");
+      sp.textContent = t.label;
+      row.appendChild(cb);
+      row.appendChild(sp);
+      list.appendChild(row);
+    });
+
+    // notes
+    $("p1").value = d[which].notes.priorities[0] || "";
+    $("p2").value = d[which].notes.priorities[1] || "";
+    $("p3").value = d[which].notes.priorities[2] || "";
+    $("distraction").value = d[which].notes.distraction || "";
+    $("goal").value = d[which].notes.goal || "";
+
+    $("completedAt").textContent = d[which].completedAt ? `Completed at: ${new Date(d[which].completedAt).toLocaleTimeString()}` : "";
+  }
+
+  function renderMeds(){
+    const d = dayData();
+
+    const mComp = completion(d.meds.morning);
+    const nComp = completion(d.meds.night);
+    const pct = Math.round((mComp.pct + nComp.pct)/2);
+    setBadge($("medsBadge"), pct);
+    $("medsBar").style.width = `${pct}%`;
+
+    const mList = $("medsMorningList");
+    const nList = $("medsNightList");
+    mList.innerHTML = "";
+    nList.innerHTML = "";
+
+    DEFAULT_MEDS.morning.forEach(item=>{
+      const row = document.createElement("label");
+      row.className="checkrow";
+      const cb = document.createElement("input");
+      cb.type="checkbox";
+      cb.checked = !!d.meds.morning[item.id];
+      cb.addEventListener("change", ()=>{
+        d.meds.morning[item.id] = cb.checked;
+        saveState(state);
+        renderMeds();
+        renderDashboard();
+      });
+      const sp = document.createElement("span");
+      sp.textContent = item.label;
+      row.appendChild(cb); row.appendChild(sp);
+      mList.appendChild(row);
+    });
+
+    DEFAULT_MEDS.night.forEach(item=>{
+      const row = document.createElement("label");
+      row.className="checkrow";
+      const cb = document.createElement("input");
+      cb.type="checkbox";
+      cb.checked = !!d.meds.night[item.id];
+      cb.addEventListener("change", ()=>{
+        d.meds.night[item.id] = cb.checked;
+        saveState(state);
+        renderMeds();
+        renderDashboard();
+      });
+      const sp = document.createElement("span");
+      sp.textContent = item.label;
+      row.appendChild(cb); row.appendChild(sp);
+      nList.appendChild(row);
+    });
+
+    $("medsNotes").value = d.meds.notes || "";
+  }
+
+  function renderHydration(){
+    const d = dayData();
+    const goal = Number(d.hydration.goalOz)||0;
+    const total = Number(d.hydration.totalOz)||0;
+    const pct = goal>0 ? clamp(Math.round((total/goal)*100),0,100) : 0;
+
+    setBadge($("hydBadge"), pct);
+    $("hydBar").style.width = `${pct}%`;
+    $("hydSummary").textContent = `${total} oz / ${goal} oz`;
+
+    $("hydGoal").value = String(goal || "");
+    $("btnUndoWater").disabled = d.hydration.entries.length===0;
+
+    const log = $("hydLog");
+    log.innerHTML = "";
+    if(!d.hydration.entries.length){
+      const div = document.createElement("div");
+      div.className="mini";
+      div.textContent = "No entries yet.";
+      log.appendChild(div);
+      return;
+    }
+    d.hydration.entries.slice().reverse().forEach(e=>{
+      const item = document.createElement("div");
+      item.className="logitem";
+      item.innerHTML = `<div style="font-weight:900;">${e.oz} oz</div><div class="mini">${new Date(e.at).toLocaleTimeString()}</div>`;
+      log.appendChild(item);
+    });
+  }
+
+  // ---- Wire up inputs
+  $("datePicker").value = date;
+  $("datePicker").addEventListener("change", (e)=>{
+    date = e.target.value || todayKey();
+    state.profiles.forEach(p=>ensureDay(p.id, date));
+    saveState(state);
+    if(view==="dashboard") renderDashboard();
+    if(view==="person") { renderPerson(); }
+  });
+
+  $("profileSelect").addEventListener("change", (e)=>{
+    selectedProfileId = e.target.value;
+    saveState(state);
+    if(view==="dashboard") renderDashboard();
+    if(view==="person") renderPerson();
+  });
+
+  $("btnDashboard").addEventListener("click", ()=>{
+    show("dashboard");
+    renderDashboard();
+  });
+
+  $("btnBack").addEventListener("click", ()=>{
+    show("dashboard");
+    renderDashboard();
+  });
+
+  $("tabMorning").addEventListener("click", ()=>setTab("morning"));
+  $("tabNight").addEventListener("click", ()=>setTab("night"));
+  $("tabMeds").addEventListener("click", ()=>setTab("meds"));
+  $("tabHydration").addEventListener("click", ()=>setTab("hydration"));
+
+  ["p1","p2","p3"].forEach((id, idx)=>{
+    $(id).addEventListener("input", ()=>{
+      const d = dayData();
+      const which = tab;
+      if(which!=="morning" && which!=="night") return;
+      d[which].notes.priorities[idx] = $(id).value;
+      saveState(state);
+    });
+  });
+  $("distraction").addEventListener("input", ()=>{
+    const d = dayData();
+    const which = tab;
+    if(which!=="morning" && which!=="night") return;
+    d[which].notes.distraction = $("distraction").value;
+    saveState(state);
+  });
+  $("goal").addEventListener("input", ()=>{
+    const d = dayData();
+    const which = tab;
+    if(which!=="morning" && which!=="night") return;
+    d[which].notes.goal = $("goal").value;
+    saveState(state);
+  });
+
+  $("medsNotes").addEventListener("input", ()=>{
+    const d = dayData();
+    d.meds.notes = $("medsNotes").value;
+    saveState(state);
+  });
+
+  $("hydGoal").addEventListener("input", ()=>{
+    const d = dayData();
+    d.hydration.goalOz = clamp(Number($("hydGoal").value)||0,0,200);
+    saveState(state);
+    renderHydration();
+    renderDashboard();
+  });
+
+  document.querySelectorAll("[data-add]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const d = dayData();
+      const oz = clamp(Number(btn.getAttribute("data-add"))||0,0,64);
+      if(oz<=0) return;
+      d.hydration.entries.push({ oz, at: nowISO() });
+      d.hydration.totalOz = d.hydration.entries.reduce((s,e)=>s+(Number(e.oz)||0),0);
+      saveState(state);
+      renderHydration();
+      renderDashboard();
+    });
+  });
+
+  $("btnUndoWater").addEventListener("click", ()=>{
+    const d = dayData();
+    d.hydration.entries.pop();
+    d.hydration.totalOz = d.hydration.entries.reduce((s,e)=>s+(Number(e.oz)||0),0);
+    saveState(state);
+    renderHydration();
+    renderDashboard();
+  });
+
+  $("btnReset").addEventListener("click", ()=>{
+    const prof = currentProfile();
+    if(!confirm(`Reset all of ${prof.name}'s entries for ${date}?`)) return;
+    ensureDay(prof.id, date);
+    state.data[prof.id][date] = makeEmptyDay();
+    saveState(state);
+    if(tab==="hydration") renderHydration();
+    else if(tab==="meds") renderMeds();
+    else renderRoutine();
+    renderDashboard();
+  });
+
+  // Export summary (simple text + JSON download)
+  $("btnExport").addEventListener("click", ()=>{
+    const lines = [];
+    lines.push(`Rush Family Rituals — ${date}`);
+    lines.push("");
+    state.profiles.forEach(p=>{
+      ensureDay(p.id, date);
+      const d = state.data[p.id][date];
+      const m = completion(d.morning.tasks).pct;
+      const n = completion(d.night.tasks).pct;
+      const medsPct = Math.round((completion(d.meds.morning).pct + completion(d.meds.night).pct)/2);
+      const goal = Number(d.hydration.goalOz)||0;
+      const total = Number(d.hydration.totalOz)||0;
+      const hPct = goal>0 ? clamp(Math.round((total/goal)*100),0,100) : 0;
+      lines.push(`${p.name}: Morning ${m}% | Night ${n}% | Meds/Vit ${medsPct}% | Hydration ${hPct}% (${total}/${goal} oz)`);
+    });
+    lines.push("");
+    const text = lines.join("\n");
+    navigator.clipboard?.writeText(text).catch(()=>{});
+    alert("Day summary copied to clipboard (if allowed). You can paste it into a text or email.\n\n" + text);
+  });
+
+  // Download app file (HTML)
+  $("btnDownloadApp").addEventListener("click", ()=>{
+    const html = "<!doctype html>\n" + document.documentElement.outerHTML;
+    const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rush-family-rituals.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // init
+  state.profiles.forEach(p=>ensureDay(p.id, date));
+  saveState(state);
+  renderDashboard();
+  show("dashboard");
+})();
+</script>
+</body>
+</html>
