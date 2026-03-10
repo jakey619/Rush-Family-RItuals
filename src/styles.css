@@ -286,6 +286,21 @@ textarea {
   background: rgba(255,255,255,.03);
 }
 
+.family-card {
+  align-self: start;
+}
+
+.family-body {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.family-body p {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .verse-box {
   border: 1px solid rgba(212,175,55,.35);
   background: rgba(212,175,55,.08);

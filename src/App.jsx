@@ -64,6 +64,92 @@ function getReminderDefaults() {
   };
 }
 
+const FAMILY_REFERENCE_SECTIONS = [
+  {
+    title: "Family Scripture",
+    body: [
+      "Joshua 24:15 - And if it seems evil unto you to serve the Lord, choose you this day whom ye will serve ... But as for me and my house, we will serve the Lord.",
+    ],
+  },
+  {
+    title: "The Lord's Prayer",
+    body: [
+      "Our Father, who art in heaven, hallowed be thy Name, thy kingdom come, thy will be done, on earth as it is in heaven. Give us this day our daily bread. And forgive us our trespasses, as we forgive those who trespass against us. And lead us not into temptation, but deliver us from evil. For thine is the kingdom, and the power, and the glory, for ever and ever. Amen.",
+    ],
+  },
+  {
+    title: "God's Minute",
+    body: [
+      "I've only just a minute, only sixty seconds in it.",
+      "Forced upon me, can't refuse it, didn't seek it, didn't choose it,",
+      "But it's up to me to use it.",
+      "I must suffer if I lose it, give an account if I abuse it,",
+      "Just a tiny little minute, but eternity is in it.",
+      "- Benjamin E. Mays",
+    ],
+  },
+  {
+    title: "Fruits of the Spirit (Galatians 5:22-23)",
+    body: [
+      "Love (Agape): Unconditional, sacrificial love for others.",
+      "Joy: Deep, spiritual contentment not dependent on circumstances.",
+      "Peace: An inner tranquility stemming from trust in God.",
+      "Patience (Forbearance): Endurance and tolerance under provocation or trial.",
+      "Kindness: A tender, compassionate disposition.",
+      "Goodness: Moral excellence and integrity in action.",
+      "Faithfulness: Reliability, loyalty, and trustworthiness.",
+      "Gentleness: Meekness and humility, rather than aggression.",
+      "Self-Control: Mastery over desires, passions, and impulses.",
+    ],
+  },
+  {
+    title: "Family Values",
+    body: [
+      "Faith: Now faith is the substance of things hoped for, the evidence of things not seen. - Hebrews 11:1",
+      "Family: Our family is a circle of strength; founded on faith, joined by love, kept by God, together forever.",
+      "Education: The function of education is to teach one to think intensively and to think critically. Intelligence plus character - that is the goal of true education. - Martin Luther King, Jr.",
+      "Service: The end of all knowledge should be service to others. - Cesar Chavez",
+      "Love: The three most important things to have are faith, hope and love. But the greatest of them is love. - 1 Corinthians 13:13",
+      "Quote (In the Parchment): Nothing in all the world is more dangerous than sincere ignorance and conscientious stupidity. - Dr. Martin Luther King, Jr.",
+    ],
+  },
+  {
+    title: "Armor of God",
+    body: [
+      "Belt of Truth (Ephesians 6:14): Protects against lies and deception by grounding the believer in God's truth.",
+      "Breastplate of Righteousness (Ephesians 6:14): Guards the heart and soul, representing the righteousness given by Christ.",
+      "Shoes of the Gospel of Peace (Ephesians 6:15): Provides firm footing and readiness to share the gospel.",
+      "Shield of Faith (Ephesians 6:16): Protects against the flaming arrows of the enemy.",
+      "Helmet of Salvation (Ephesians 6:17): Protects the mind from doubt and secures the believer's identity in Christ.",
+      "Sword of the Spirit (Ephesians 6:17): The offensive weapon representing the Word of God used to fight temptation.",
+    ],
+  },
+  {
+    title: "Family Crest",
+    body: [
+      "Ring: Protection, never-ending love.",
+      "Praying Hands: We are a praying family first.",
+      "Fidelity: Faithfulness to all valued causes.",
+      "Sincerity: Honest and realness with all.",
+      "Justice: Just treatment of all.",
+      "Shield: Willingness to provide and protect the family and its values.",
+      "Family Names and Roots: Blue Crab for Baltimore roots of the Marshall and Lamar families. Lone Star for Texas roots of the Rush and Martin families.",
+      "5 Points: Service, Education, Family, Faith, and strength through all things.",
+      "3 Squares: Triquetra for family and love / Trinity, Heart for hope and charity, Parchment and Quill for education and wisdom.",
+      "Cross: Faith and Christianity at the center of the family.",
+      "Anchor: Hope and the family's naval history.",
+      "Speared Lances: Power and the husband's role as provider and supporter of his wife.",
+    ],
+  },
+  {
+    title: "Scriptures",
+    body: [
+      "Joshua 24:15 - The Family Scripture: And if it seem evil unto you to serve the Lord, choose you this day whom ye will serve ... but as for me and my house, we will serve the Lord. - KJV",
+      "1 Corinthians 13:13 - Embedded: The three most important things to have are faith, hope and love. But the greatest of them is love. - NIRV",
+    ],
+  },
+];
+
 function normalizeProfile(rawProfile) {
   const fallback =
     DEFAULT_PROFILES.find((p) => p.id === rawProfile?.id) || DEFAULT_PROFILES[0];
@@ -87,6 +173,9 @@ function normalizeProfile(rawProfile) {
     vitamins: Array.isArray(rawProfile?.vitamins)
       ? rawProfile.vitamins
       : fallback.vitamins,
+    exerciseItems: Array.isArray(rawProfile?.exerciseItems)
+      ? rawProfile.exerciseItems
+      : fallback.exerciseItems,
   };
 }
 
@@ -128,6 +217,10 @@ function normalizeEntry(profile, rawEntry, date) {
     vitaminChecks: {
       ...base.vitaminChecks,
       ...(rawEntry?.vitaminChecks || {}),
+    },
+    exerciseChecks: {
+      ...base.exerciseChecks,
+      ...(rawEntry?.exerciseChecks || {}),
     },
 
     nightPriorities: Array.isArray(rawEntry?.nightPriorities)
@@ -171,7 +264,7 @@ function hasLocalStorage() {
 }
 
 function getTaskTooltip(label) {
-  const normalizedLabel = label.toLowerCase().replace(/[–—]/g, "-");
+  const normalizedLabel = label.toLowerCase().replace(/[\u2013\u2014]/g, "-");
 
   if (normalizedLabel.includes("activation / stretch")) {
     return [
@@ -529,6 +622,7 @@ export default function App() {
         nightItems: profileToSave.nightItems,
         medications: profileToSave.medications,
         vitamins: profileToSave.vitamins,
+        exerciseItems: profileToSave.exerciseItems,
       },
     });
 
@@ -767,6 +861,14 @@ export default function App() {
     });
   }
 
+  function completeCurrentNightTasks() {
+    updateCurrentEntry((draft) => {
+      profile.nightItems.forEach((item) => {
+        draft.nightChecks[item.id] = true;
+      });
+    });
+  }
+
   function resetHydration() {
     updateCurrentEntry((draft) => {
       draft.waterEntries = [];
@@ -836,6 +938,10 @@ export default function App() {
         profile.vitamins.map((x) => x.id),
         entry.vitaminChecks
       );
+      const exercisePct = calcPctFromIds(
+        profile.exerciseItems.map((x) => x.id),
+        entry.exerciseChecks
+      );
 
       const medVitPct =
         profile.medications.length || profile.vitamins.length
@@ -852,6 +958,7 @@ export default function App() {
         morningPct,
         nightPct,
         medVitPct,
+        exercisePct,
         hydrationPct,
       };
     });
@@ -890,6 +997,10 @@ export default function App() {
         profile.medications.length || profile.vitamins.length
           ? Math.round((medsPct + vitaminsPct) / 2)
           : 0;
+      const exercisePct = calcPctFromIds(
+        profile.exerciseItems.map((item) => item.id),
+        dailyEntry.exerciseChecks
+      );
 
       return {
         date,
@@ -897,6 +1008,7 @@ export default function App() {
         morningPct,
         nightPct,
         medVitPct,
+        exercisePct,
         hydrationPct: calcHydrationPct(dailyEntry),
       };
     });
@@ -954,7 +1066,17 @@ export default function App() {
           dailyEntry.nightChecks
         );
 
-        return average([morningPct, nightPct, calcHydrationPct(dailyEntry)]);
+        const exercisePct = calcPctFromIds(
+          reviewProfile.exerciseItems.map((item) => item.id),
+          dailyEntry.exerciseChecks
+        );
+
+        const scoreParts = [morningPct, nightPct, calcHydrationPct(dailyEntry)];
+        if (reviewProfile.exerciseItems.length) {
+          scoreParts.push(exercisePct);
+        }
+
+        return average(scoreParts);
       });
 
       return {
@@ -973,6 +1095,10 @@ export default function App() {
       ...profile.nightItems.map((item) => ({
         ...item,
         field: "nightChecks",
+      })),
+      ...profile.exerciseItems.map((item) => ({
+        ...item,
+        field: "exerciseChecks",
       })),
     ];
 
@@ -1018,7 +1144,10 @@ export default function App() {
         const nightMisses = profile.nightItems.filter(
           (item) => !dailyEntry.nightChecks[item.id]
         ).length;
-        return count + morningMisses + nightMisses;
+        const exerciseMisses = profile.exerciseItems.filter(
+          (item) => !dailyEntry.exerciseChecks[item.id]
+        ).length;
+        return count + morningMisses + nightMisses + exerciseMisses;
       }, 0),
     })).sort((left, right) => right.missedCount - left.missedCount);
 
@@ -1155,6 +1284,13 @@ export default function App() {
             Review
           </button>
 
+          <button
+            className={view === "family" ? "btn-primary" : "btn-secondary"}
+            onClick={() => setView("family")}
+          >
+            Family
+          </button>
+
           <button className="btn-primary" onClick={exportSummary}>
             Export Day Summary
           </button>
@@ -1201,7 +1337,11 @@ export default function App() {
                     )
                   )}
                 >
-                  {row.morningPct || row.nightPct || row.medVitPct || row.hydrationPct
+                  {row.morningPct ||
+                  row.nightPct ||
+                  row.medVitPct ||
+                  row.exercisePct ||
+                  row.hydrationPct
                     ? "In Progress"
                     : "Not Started"}
                 </span>
@@ -1225,6 +1365,13 @@ export default function App() {
                 <div className="muted">Meds/Vitamins {row.medVitPct}%</div>
                 <div className="progress">
                   <div style={{ width: `${row.medVitPct}%` }} />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <div className="muted">Exercise {row.exercisePct}%</div>
+                <div className="progress">
+                  <div style={{ width: `${row.exercisePct}%` }} />
                 </div>
               </div>
 
@@ -1293,6 +1440,12 @@ export default function App() {
                         <span>Meds</span>
                         <div className="progress">
                           <div style={{ width: `${day.medVitPct}%` }} />
+                        </div>
+                      </div>
+                      <div className="mini-trend">
+                        <span>Exercise</span>
+                        <div className="progress">
+                          <div style={{ width: `${day.exercisePct}%` }} />
                         </div>
                       </div>
                       <div className="mini-trend">
@@ -1366,6 +1519,30 @@ export default function App() {
         </div>
       )}
 
+      {view === "family" && (
+        <div className="grid">
+          <div className="card">
+            <div style={{ fontWeight: 900, fontSize: 22 }}>Family Reference</div>
+            <div className="muted" style={{ marginTop: 4 }}>
+              Shared scripture, values, prayers, and family identity notes
+            </div>
+          </div>
+
+          <div className="grid grid-2">
+            {FAMILY_REFERENCE_SECTIONS.map((section) => (
+              <div className="card family-card" key={section.title}>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{section.title}</div>
+                <div className="family-body">
+                  {section.body.map((line) => (
+                    <p key={`${section.title}-${line}`}>{line}</p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {view === "detail" && (
         <div className="grid">
           <div className="card">
@@ -1395,6 +1572,12 @@ export default function App() {
                   onClick={() => setTab("meds")}
                 >
                   Meds / Vitamins
+                </button>
+                <button
+                  className={tab === "exercise" ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setTab("exercise")}
+                >
+                  Exercise
                 </button>
                 <button
                   className={tab === "metrics" ? "btn-primary" : "btn-secondary"}
@@ -1490,6 +1673,11 @@ export default function App() {
                 {tab === "morning" && (
                   <button className="btn-primary" onClick={completeCurrentMorningTasks}>
                     Complete All Morning Tasks
+                  </button>
+                )}
+                {tab === "night" && (
+                  <button className="btn-primary" onClick={completeCurrentNightTasks}>
+                    Complete All Night Tasks
                   </button>
                 )}
                 {tab === "night" && (
@@ -1642,6 +1830,54 @@ export default function App() {
                     });
                   }}
                 />
+              </div>
+            </div>
+          )}
+
+          {tab === "exercise" && (
+            <div className="card">
+              <div className="row space-between">
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>Exercise</div>
+                  <div className="muted">Track the daily workout items for this person.</div>
+                </div>
+
+                <span
+                  className={statusClass(
+                    calcPctFromIds(
+                      profile.exerciseItems.map((item) => item.id),
+                      entry.exerciseChecks
+                    )
+                  )}
+                >
+                  {calcPctFromIds(
+                    profile.exerciseItems.map((item) => item.id),
+                    entry.exerciseChecks
+                  )}
+                  %
+                </span>
+              </div>
+
+              <div style={{ marginTop: 14 }}>
+                {profile.exerciseItems.length ? (
+                  profile.exerciseItems.map((item) => (
+                    <label className="check-row" key={item.id}>
+                      <input
+                        type="checkbox"
+                        checked={!!entry.exerciseChecks[item.id]}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          updateCurrentEntry((draft) => {
+                            draft.exerciseChecks[item.id] = checked;
+                          });
+                        }}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))
+                ) : (
+                  <div className="muted">No exercise defaults set for this person yet.</div>
+                )}
               </div>
             </div>
           )}
@@ -1954,6 +2190,14 @@ export default function App() {
                 onAdd={(label) => addListItem("vitamins", label)}
                 onRename={(id, label) => renameListItem("vitamins", id, label)}
                 onRemove={(id) => removeListItem("vitamins", id)}
+              />
+
+              <ListEditor
+                title="Exercise Items"
+                items={profile.exerciseItems}
+                onAdd={(label) => addListItem("exerciseItems", label)}
+                onRename={(id, label) => renameListItem("exerciseItems", id, label)}
+                onRemove={(id) => removeListItem("exerciseItems", id)}
               />
             </div>
           )}

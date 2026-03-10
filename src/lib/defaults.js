@@ -72,6 +72,12 @@ export const DEFAULT_PROFILES = [
     ],
     medications: [item("Melatonin")],
     vitamins: [item("Multivitamin"), item("Magnesium")],
+    exerciseItems: [
+      item("100 Pushup"),
+      item("100 Situps"),
+      item("100 Squats"),
+      item("30 mins of cardio (practice counts)"),
+    ],
   },
   {
     id: "anaya",
@@ -104,6 +110,12 @@ export const DEFAULT_PROFILES = [
     ],
     medications: [],
     vitamins: [],
+    exerciseItems: [
+      item("100 Pushup"),
+      item("100 Situps"),
+      item("100 Squats"),
+      item("30 mins of cardio (practice counts)"),
+    ],
   },
   {
     id: "robert",
@@ -145,6 +157,7 @@ export const DEFAULT_PROFILES = [
       item("Multivitamin"),
       item("Red Yeast Rice"),
     ],
+    exerciseItems: [],
   },
   {
     id: "karimah",
@@ -176,6 +189,7 @@ export const DEFAULT_PROFILES = [
       item("Multivitamin"),
       item("Fiber"),
     ],
+    exerciseItems: [],
   },
 ];
 
@@ -188,6 +202,7 @@ export function emptyEntry(profile, date) {
     nightChecks: {},
     medChecks: {},
     vitaminChecks: {},
+    exerciseChecks: {},
 
     nightPriorities: ["", "", ""],
     nightDistraction: "",
