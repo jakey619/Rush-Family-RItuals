@@ -301,6 +301,113 @@ textarea {
   line-height: 1.6;
 }
 
+.family-modal {
+  width: min(960px, 100%);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+}
+
+.family-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1.4fr minmax(120px, 220px);
+  gap: 20px;
+  align-items: center;
+  min-height: 220px;
+  border: 1px solid rgba(255,255,255,.1);
+}
+
+.family-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 35%),
+    linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+  pointer-events: none;
+}
+
+.family-banner-scripture {
+  background: linear-gradient(135deg, rgba(24,58,96,.92), rgba(92,43,128,.88));
+}
+
+.family-banner-prayer {
+  background: linear-gradient(135deg, rgba(88,41,103,.92), rgba(149,92,41,.88));
+}
+
+.family-banner-minute {
+  background: linear-gradient(135deg, rgba(54,73,36,.92), rgba(137,109,45,.88));
+}
+
+.family-banner-fruit {
+  background: linear-gradient(135deg, rgba(31,93,78,.92), rgba(81,42,102,.88));
+}
+
+.family-banner-values {
+  background: linear-gradient(135deg, rgba(103,47,59,.92), rgba(33,63,112,.88));
+}
+
+.family-banner-armor {
+  background: linear-gradient(135deg, rgba(53,58,94,.92), rgba(115,76,32,.88));
+}
+
+.family-banner-crest {
+  background: linear-gradient(135deg, rgba(30,50,92,.95), rgba(110,77,27,.92));
+}
+
+.family-banner-copy,
+.family-banner-image {
+  position: relative;
+  z-index: 1;
+}
+
+.family-banner-title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-top: 10px;
+}
+
+.family-banner-subtitle {
+  color: rgba(247,241,255,.82);
+  font-size: 15px;
+  margin-top: 8px;
+  max-width: 36ch;
+}
+
+.family-banner-image {
+  width: min(100%, 180px);
+  justify-self: end;
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
+  opacity: .95;
+}
+
+.family-modal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.family-modal-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.family-modal-body {
+  margin-top: 18px;
+  padding: 18px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+}
+
 .verse-box {
   border: 1px solid rgba(212,175,55,.35);
   background: rgba(212,175,55,.08);
@@ -346,5 +453,20 @@ input[type="checkbox"] {
   .insight-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .family-banner {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .family-banner-image {
+    justify-self: start;
+    width: 120px;
+  }
+
+  .family-modal-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

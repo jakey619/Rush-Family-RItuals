@@ -67,18 +67,27 @@ function getReminderDefaults() {
 const FAMILY_REFERENCE_SECTIONS = [
   {
     title: "Family Scripture",
+    subtitle: "The verse that anchors the house",
+    accent: "scripture",
+    image: "family/family-scripture.jpg",
     body: [
       "Joshua 24:15 - And if it seems evil unto you to serve the Lord, choose you this day whom ye will serve ... But as for me and my house, we will serve the Lord.",
     ],
   },
   {
     title: "The Lord's Prayer",
+    subtitle: "Shared prayer and daily posture",
+    accent: "prayer",
+    image: "family/lords-prayer.jpg",
     body: [
       "Our Father, who art in heaven, hallowed be thy Name, thy kingdom come, thy will be done, on earth as it is in heaven. Give us this day our daily bread. And forgive us our trespasses, as we forgive those who trespass against us. And lead us not into temptation, but deliver us from evil. For thine is the kingdom, and the power, and the glory, for ever and ever. Amen.",
     ],
   },
   {
     title: "God's Minute",
+    subtitle: "A daily reminder about stewardship",
+    accent: "minute",
+    image: "family/gods-minute.jpg",
     body: [
       "I've only just a minute, only sixty seconds in it.",
       "Forced upon me, can't refuse it, didn't seek it, didn't choose it,",
@@ -90,6 +99,9 @@ const FAMILY_REFERENCE_SECTIONS = [
   },
   {
     title: "Fruits of the Spirit (Galatians 5:22-23)",
+    subtitle: "Character the family wants to live out",
+    accent: "fruit",
+    image: "family/fruits-of-the-spirit.jpg",
     body: [
       "Love (Agape): Unconditional, sacrificial love for others.",
       "Joy: Deep, spiritual contentment not dependent on circumstances.",
@@ -104,6 +116,9 @@ const FAMILY_REFERENCE_SECTIONS = [
   },
   {
     title: "Family Values",
+    subtitle: "The principles behind the crest",
+    accent: "values",
+    image: "family/family-values.jpg",
     body: [
       "Faith: Now faith is the substance of things hoped for, the evidence of things not seen. - Hebrews 11:1",
       "Family: Our family is a circle of strength; founded on faith, joined by love, kept by God, together forever.",
@@ -115,6 +130,9 @@ const FAMILY_REFERENCE_SECTIONS = [
   },
   {
     title: "Armor of God",
+    subtitle: "Spiritual readiness for daily life",
+    accent: "armor",
+    image: "family/armor-of-god.jpg",
     body: [
       "Belt of Truth (Ephesians 6:14): Protects against lies and deception by grounding the believer in God's truth.",
       "Breastplate of Righteousness (Ephesians 6:14): Guards the heart and soul, representing the righteousness given by Christ.",
@@ -126,6 +144,9 @@ const FAMILY_REFERENCE_SECTIONS = [
   },
   {
     title: "Family Crest",
+    subtitle: "Meaning behind the symbols",
+    accent: "crest",
+    image: "family/family-crest.png",
     body: [
       "Ring: Protection, never-ending love.",
       "Praying Hands: We are a praying family first.",
@@ -143,12 +164,20 @@ const FAMILY_REFERENCE_SECTIONS = [
   },
   {
     title: "Scriptures",
+    subtitle: "Embedded verses carried by the family",
+    accent: "scripture",
+    image: "family/scriptures.jpg",
     body: [
       "Joshua 24:15 - The Family Scripture: And if it seem evil unto you to serve the Lord, choose you this day whom ye will serve ... but as for me and my house, we will serve the Lord. - KJV",
       "1 Corinthians 13:13 - Embedded: The three most important things to have are faith, hope and love. But the greatest of them is love. - NIRV",
     ],
   },
 ];
+
+function clampIndex(index, length) {
+  if (!length) return 0;
+  return ((index % length) + length) % length;
+}
 
 function normalizeProfile(rawProfile) {
   const fallback =
@@ -327,6 +356,8 @@ export default function App() {
   const [verseOpen, setVerseOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(getOnlineStatus);
+  const [familyModalOpen, setFamilyModalOpen] = useState(false);
+  const [familySectionIndex, setFamilySectionIndex] = useState(0);
   const [reminderSettings, setReminderSettings] = useState(getReminderDefaults);
   const [notificationPermission, setNotificationPermission] = useState(() =>
     typeof Notification === "undefined" ? "unsupported" : Notification.permission
@@ -966,6 +997,8 @@ export default function App() {
 
   const profile = currentProfile();
   const entry = normalizeEntry(profile, currentEntry(), selectedDate);
+  const activeFamilySection =
+    FAMILY_REFERENCE_SECTIONS[clampIndex(familySectionIndex, FAMILY_REFERENCE_SECTIONS.length)];
   const reviewDates = useMemo(() => getDateRange(selectedDate, 7), [selectedDate]);
   const insightDates = useMemo(() => getDateRange(selectedDate, 30), [selectedDate]);
 
@@ -1233,6 +1266,21 @@ export default function App() {
     setNotificationPermission(permission);
   }
 
+  function openFamilySection(index = 0) {
+    setFamilySectionIndex(clampIndex(index, FAMILY_REFERENCE_SECTIONS.length));
+    setFamilyModalOpen(true);
+  }
+
+  function closeFamilyModal() {
+    setFamilyModalOpen(false);
+  }
+
+  function stepFamilySection(direction) {
+    setFamilySectionIndex((currentIndex) =>
+      clampIndex(currentIndex + direction, FAMILY_REFERENCE_SECTIONS.length)
+    );
+  }
+
   return (
     <div className="app-shell">
       <div className="topbar">
@@ -1285,8 +1333,8 @@ export default function App() {
           </button>
 
           <button
-            className={view === "family" ? "btn-primary" : "btn-secondary"}
-            onClick={() => setView("family")}
+            className={familyModalOpen ? "btn-primary" : "btn-secondary"}
+            onClick={() => openFamilySection(0)}
           >
             Family
           </button>
@@ -1515,30 +1563,6 @@ export default function App() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {view === "family" && (
-        <div className="grid">
-          <div className="card">
-            <div style={{ fontWeight: 900, fontSize: 22 }}>Family Reference</div>
-            <div className="muted" style={{ marginTop: 4 }}>
-              Shared scripture, values, prayers, and family identity notes
-            </div>
-          </div>
-
-          <div className="grid grid-2">
-            {FAMILY_REFERENCE_SECTIONS.map((section) => (
-              <div className="card family-card" key={section.title}>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>{section.title}</div>
-                <div className="family-body">
-                  {section.body.map((line) => (
-                    <p key={`${section.title}-${line}`}>{line}</p>
-                  ))}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -2217,6 +2241,68 @@ export default function App() {
             <div className="row" style={{ marginTop: 16 }}>
               <button className="btn-primary" onClick={closeVerse}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {familyModalOpen && (
+        <div className="modal-backdrop" onClick={closeFamilyModal}>
+          <div className="modal family-modal" onClick={(e) => e.stopPropagation()}>
+            <div
+              className={`family-banner family-banner-${activeFamilySection.accent}`}
+            >
+              <div className="family-banner-copy">
+                <div className="badge">Family Reference</div>
+                <div className="family-banner-title">{activeFamilySection.title}</div>
+                <div className="family-banner-subtitle">
+                  {activeFamilySection.subtitle}
+                </div>
+              </div>
+              <img
+                className="family-banner-image"
+                src={`${import.meta.env.BASE_URL}${activeFamilySection.image}`}
+                alt={activeFamilySection.title}
+              />
+            </div>
+
+            <div className="family-modal-toolbar">
+              <button className="btn-secondary" onClick={() => stepFamilySection(-1)}>
+                Previous
+              </button>
+              <div className="muted">
+                Section {familySectionIndex + 1} of {FAMILY_REFERENCE_SECTIONS.length}
+              </div>
+              <button className="btn-secondary" onClick={() => stepFamilySection(1)}>
+                Next
+              </button>
+            </div>
+
+            <div className="family-modal-tabs">
+              {FAMILY_REFERENCE_SECTIONS.map((section, index) => (
+                <button
+                  key={section.title}
+                  className={index === familySectionIndex ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setFamilySectionIndex(index)}
+                >
+                  {section.title}
+                </button>
+              ))}
+            </div>
+
+            <div className="family-body family-modal-body">
+              {activeFamilySection.body.map((line) => (
+                <p key={`${activeFamilySection.title}-${line}`}>{line}</p>
+              ))}
+            </div>
+
+            <div className="row" style={{ marginTop: 16, justifyContent: "space-between" }}>
+              <button className="btn-secondary" onClick={closeFamilyModal}>
+                Close
+              </button>
+              <button className="btn-primary" onClick={() => stepFamilySection(1)}>
+                Continue
               </button>
             </div>
           </div>
