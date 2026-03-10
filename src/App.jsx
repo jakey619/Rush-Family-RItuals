@@ -138,6 +138,27 @@ function hasLocalStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+function getTaskTooltip(label) {
+  if (label === "Activation / Stretch (5 - 10 minutes)") {
+    return [
+      "20 bodyweight squats",
+      "20 calf raises",
+      "30-second plank",
+      "10 glute bridges",
+      "10 leg swings each side",
+    ].join("\n");
+  }
+
+  if (label === "Recovery / stretch (5-10 min)") {
+    return [
+      "Light Foam and/or Muscle Gun",
+      "5 mins of streching",
+    ].join("\n");
+  }
+
+  return "";
+}
+
 export default function App() {
   const [profiles, setProfiles] = useState(
     mergeProfilesWithDefaults(DEFAULT_PROFILES)
@@ -931,7 +952,11 @@ export default function App() {
               <div style={{ marginTop: 12 }}>
                 {(tab === "morning" ? profile.morningItems : profile.nightItems).map(
                   (item) => (
-                    <label className="check-row" key={item.id}>
+                    <label
+                      className="check-row"
+                      key={item.id}
+                      title={getTaskTooltip(item.label) || undefined}
+                    >
                       <input
                         type="checkbox"
                         checked={
@@ -990,8 +1015,8 @@ export default function App() {
                 <div>
                   <div className="muted" style={{ marginBottom: 6 }}>
                     {tab === "morning"
-                      ? "Possible distraction"
-                      : "Possible distraction tomorrow"}
+                      ? "Possible Distractions"
+                      : "Possible Distractions for Tomorrow"}
                   </div>
                   <textarea
                     rows={3}
@@ -1016,8 +1041,8 @@ export default function App() {
                 <div>
                   <div className="muted" style={{ marginBottom: 6 }}>
                     {tab === "morning"
-                      ? "Goal / identity"
-                      : "Goal / identity tomorrow"}
+                      ? "Daily Goals"
+                      : "Daily Goals for Tomorrow"}
                   </div>
                   <textarea
                     rows={3}
