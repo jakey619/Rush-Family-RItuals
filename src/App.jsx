@@ -20,6 +20,9 @@ function keyFor(profileId, date) {
   return `${profileId}__${date}`;
 }
 
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const REMINDER_SETTINGS_KEY = "routine_reminder_settings_v1";
+
 function statusClass(pct) {
   if (pct === 100) return "badge complete";
   if (pct > 0) return "badge progress";
@@ -30,6 +33,35 @@ function calcPctFromIds(ids, checks = {}) {
   if (!ids.length) return 0;
   const done = ids.filter((id) => !!checks[id]).length;
   return Math.round((done / ids.length) * 100);
+}
+
+function calcHydrationPct(entry) {
+  return entry.hydrationGoal
+    ? Math.min(100, Math.round((entry.totalWater / entry.hydrationGoal) * 100))
+    : 0;
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function toWeekday(dateKey) {
+  return WEEKDAY_LABELS[new Date(`${dateKey}T12:00:00`).getDay()];
+}
+
+function getDateRange(endDate, days) {
+  return Array.from({ length: days }, (_, index) =>
+    shiftDate(endDate, index - (days - 1))
+  );
+}
+
+function getReminderDefaults() {
+  return {
+    enabled: false,
+    morningTime: "06:45",
+    nightTime: "20:00",
+  };
 }
 
 function normalizeProfile(rawProfile) {
@@ -139,7 +171,9 @@ function hasLocalStorage() {
 }
 
 function getTaskTooltip(label) {
-  if (label === "Activation / Stretch (5 - 10 minutes)") {
+  const normalizedLabel = label.toLowerCase().replace(/[–—]/g, "-");
+
+  if (normalizedLabel.includes("activation / stretch")) {
     return [
       "20 bodyweight squats",
       "20 calf raises",
@@ -149,7 +183,7 @@ function getTaskTooltip(label) {
     ].join("\n");
   }
 
-  if (label === "Recovery / stretch (5-10 min)") {
+  if (normalizedLabel.includes("recovery / stretch")) {
     return [
       "Light Foam and/or Muscle Gun",
       "5 mins of streching",
@@ -157,6 +191,32 @@ function getTaskTooltip(label) {
   }
 
   return "";
+}
+
+function buildCarryForwardEntry(profile, date, allEntries) {
+  const nextEntry = emptyEntry(profile, date);
+  const previousDate = shiftDate(date, -1);
+  const previousRaw = allEntries[keyFor(profile.id, previousDate)];
+
+  if (!previousRaw) {
+    return nextEntry;
+  }
+
+  const previousEntry = normalizeEntry(profile, previousRaw, previousDate);
+  const carriedPriorities = previousEntry.nightPriorities?.some(Boolean)
+    ? [...previousEntry.nightPriorities]
+    : nextEntry.nightPriorities;
+
+  return normalizeEntry(
+    profile,
+    {
+      ...nextEntry,
+      nightPriorities: carriedPriorities,
+      morningDistraction: previousEntry.morningDistraction || "",
+      nightDistraction: previousEntry.nightDistraction || "",
+    },
+    date
+  );
 }
 
 export default function App() {
@@ -174,6 +234,10 @@ export default function App() {
   const [verseOpen, setVerseOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(getOnlineStatus);
+  const [reminderSettings, setReminderSettings] = useState(getReminderDefaults);
+  const [notificationPermission, setNotificationPermission] = useState(() =>
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission
+  );
 
   const profilesRef = useRef(profiles);
   const entriesRef = useRef(entries);
@@ -191,6 +255,28 @@ export default function App() {
   useEffect(() => {
     pendingRef.current = pending;
   }, [pending]);
+
+  useEffect(() => {
+    if (!hasLocalStorage()) return;
+
+    const saved = localStorage.getItem(REMINDER_SETTINGS_KEY);
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+      setReminderSettings((prev) => ({
+        ...prev,
+        ...parsed,
+      }));
+    } catch {
+      // Ignore malformed reminder settings and fall back to defaults.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLocalStorage()) return;
+    localStorage.setItem(REMINDER_SETTINGS_KEY, JSON.stringify(reminderSettings));
+  }, [reminderSettings]);
 
   const verse = useMemo(() => getVerseForDate(selectedDate), [selectedDate]);
 
@@ -250,6 +336,82 @@ export default function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (
+      !reminderSettings.enabled ||
+      typeof Notification === "undefined" ||
+      Notification.permission !== "granted"
+    ) {
+      return undefined;
+    }
+
+    const maybeSendReminder = (type) => {
+      const targetTime =
+        type === "morning" ? reminderSettings.morningTime : reminderSettings.nightTime;
+      if (!targetTime) return;
+
+      const now = new Date();
+      const dateKey = toDateKey(now);
+      const [hour, minute] = targetTime.split(":").map(Number);
+
+      if (now.getHours() < hour || (now.getHours() === hour && now.getMinutes() < minute)) {
+        return;
+      }
+
+      const sentKey = `reminder_sent_${type}_${dateKey}`;
+      if (hasLocalStorage() && localStorage.getItem(sentKey)) {
+        return;
+      }
+
+      const incompleteProfiles = profilesRef.current.filter((profile) => {
+        const dailyEntry = normalizeEntry(
+          profile,
+          entriesRef.current[keyFor(profile.id, dateKey)],
+          dateKey
+        );
+
+        if (type === "morning") {
+          return calcPctFromIds(
+            profile.morningItems.map((item) => item.id),
+            dailyEntry.morningChecks
+          ) < 100;
+        }
+
+        return calcPctFromIds(
+          profile.nightItems.map((item) => item.id),
+          dailyEntry.nightChecks
+        ) < 100;
+      });
+
+      if (!incompleteProfiles.length) {
+        if (hasLocalStorage()) {
+          localStorage.setItem(sentKey, "1");
+        }
+        return;
+      }
+
+      new Notification(
+        type === "morning" ? "Morning routines due" : "Night routines due",
+        {
+          body: `${incompleteProfiles.map((profile) => profile.displayName).join(", ")} still have items left.`,
+        }
+      );
+
+      if (hasLocalStorage()) {
+        localStorage.setItem(sentKey, "1");
+      }
+    };
+
+    const runChecks = () => {
+      maybeSendReminder("morning");
+      maybeSendReminder("night");
+    };
+
+    runChecks();
+    const intervalId = window.setInterval(runChecks, 60000);
+    return () => window.clearInterval(intervalId);
+  }, [reminderSettings]);
 
   useEffect(() => {
     const seenKey = `verse_seen_${selectedDate}`;
@@ -410,7 +572,7 @@ export default function App() {
       return normalized;
     }
 
-    const nextEntry = normalizeEntry(profile, null, date);
+    const nextEntry = buildCarryForwardEntry(profile, date, currentEntries);
     const nextEntries = {
       ...currentEntries,
       [k]: nextEntry,
@@ -597,6 +759,21 @@ export default function App() {
     updateEntry(next);
   }
 
+  function completeCurrentMorningTasks() {
+    updateCurrentEntry((draft) => {
+      profile.morningItems.forEach((item) => {
+        draft.morningChecks[item.id] = true;
+      });
+    });
+  }
+
+  function resetHydration() {
+    updateCurrentEntry((draft) => {
+      draft.waterEntries = [];
+      draft.totalWater = 0;
+    });
+  }
+
   function linkedPriorities() {
     const prevDate = shiftDate(selectedDate, -1);
     const profile = currentProfile();
@@ -617,6 +794,19 @@ export default function App() {
     const next = deepClone(existingPrev);
     next.nightPriorities = values;
     updateEntry(next);
+  }
+
+  function copyYesterdayPriorities() {
+    const previousDate = shiftDate(selectedDate, -1);
+    const previousEntry = normalizeEntry(
+      profile,
+      entriesRef.current[keyFor(selectedProfileId, previousDate)],
+      previousDate
+    );
+
+    updateCurrentEntry((draft) => {
+      draft.nightPriorities = [...(previousEntry.nightPriorities || ["", "", ""])];
+    });
   }
 
   const overviewRows = useMemo(() => {
@@ -669,6 +859,174 @@ export default function App() {
 
   const profile = currentProfile();
   const entry = normalizeEntry(profile, currentEntry(), selectedDate);
+  const reviewDates = useMemo(() => getDateRange(selectedDate, 7), [selectedDate]);
+  const insightDates = useMemo(() => getDateRange(selectedDate, 30), [selectedDate]);
+
+  const selectedProfileReview = useMemo(() => {
+    return reviewDates.map((date) => {
+      const dailyEntry = normalizeEntry(
+        profile,
+        entries[keyFor(profile.id, date)],
+        date
+      );
+
+      const morningPct = calcPctFromIds(
+        profile.morningItems.map((item) => item.id),
+        dailyEntry.morningChecks
+      );
+      const nightPct = calcPctFromIds(
+        profile.nightItems.map((item) => item.id),
+        dailyEntry.nightChecks
+      );
+      const medsPct = calcPctFromIds(
+        profile.medications.map((item) => item.id),
+        dailyEntry.medChecks
+      );
+      const vitaminsPct = calcPctFromIds(
+        profile.vitamins.map((item) => item.id),
+        dailyEntry.vitaminChecks
+      );
+      const medVitPct =
+        profile.medications.length || profile.vitamins.length
+          ? Math.round((medsPct + vitaminsPct) / 2)
+          : 0;
+
+      return {
+        date,
+        weekday: toWeekday(date),
+        morningPct,
+        nightPct,
+        medVitPct,
+        hydrationPct: calcHydrationPct(dailyEntry),
+      };
+    });
+  }, [entries, profile, reviewDates]);
+
+  const streaks = useMemo(() => {
+    const calculateStreak = (getValue) => {
+      let streak = 0;
+
+      for (let index = reviewDates.length - 1; index >= 0; index -= 1) {
+        if (getValue(reviewDates[index]) === 100) {
+          streak += 1;
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    };
+
+    return {
+      morning: calculateStreak((date) =>
+        calcPctFromIds(
+          profile.morningItems.map((item) => item.id),
+          normalizeEntry(profile, entries[keyFor(profile.id, date)], date).morningChecks
+        )
+      ),
+      night: calculateStreak((date) =>
+        calcPctFromIds(
+          profile.nightItems.map((item) => item.id),
+          normalizeEntry(profile, entries[keyFor(profile.id, date)], date).nightChecks
+        )
+      ),
+      hydration: calculateStreak((date) =>
+        calcHydrationPct(normalizeEntry(profile, entries[keyFor(profile.id, date)], date))
+      ),
+    };
+  }, [entries, profile, reviewDates]);
+
+  const familyWeeklySummary = useMemo(() => {
+    return profiles.map((reviewProfile) => {
+      const values = reviewDates.map((date) => {
+        const dailyEntry = normalizeEntry(
+          reviewProfile,
+          entries[keyFor(reviewProfile.id, date)],
+          date
+        );
+
+        const morningPct = calcPctFromIds(
+          reviewProfile.morningItems.map((item) => item.id),
+          dailyEntry.morningChecks
+        );
+        const nightPct = calcPctFromIds(
+          reviewProfile.nightItems.map((item) => item.id),
+          dailyEntry.nightChecks
+        );
+
+        return average([morningPct, nightPct, calcHydrationPct(dailyEntry)]);
+      });
+
+      return {
+        profile: reviewProfile,
+        weeklyScore: average(values),
+      };
+    });
+  }, [entries, profiles, reviewDates]);
+
+  const habitInsights = useMemo(() => {
+    const allTasks = [
+      ...profile.morningItems.map((item) => ({
+        ...item,
+        field: "morningChecks",
+      })),
+      ...profile.nightItems.map((item) => ({
+        ...item,
+        field: "nightChecks",
+      })),
+    ];
+
+    const taskInsights = allTasks
+      .map((task) => {
+        const missedOn = [];
+
+        insightDates.forEach((date) => {
+          const dailyEntry = normalizeEntry(profile, entries[keyFor(profile.id, date)], date);
+          if (!dailyEntry[task.field]?.[task.id]) {
+            missedOn.push(date);
+          }
+        });
+
+        return {
+          id: `${task.field}:${task.id}`,
+          label: task.label,
+          missedCount: missedOn.length,
+          missedDays: missedOn.reduce((accumulator, date) => {
+            const day = toWeekday(date);
+            accumulator[day] = (accumulator[day] || 0) + 1;
+            return accumulator;
+          }, {}),
+        };
+      })
+      .sort((left, right) => right.missedCount - left.missedCount)
+      .slice(0, 5)
+      .map((task) => ({
+        ...task,
+        mostMissedDay:
+          Object.entries(task.missedDays).sort((left, right) => right[1] - left[1])[0]?.[0] ||
+          "None",
+      }));
+
+    const weekdayMisses = WEEKDAY_LABELS.map((day) => ({
+      day,
+      missedCount: insightDates.reduce((count, date) => {
+        if (toWeekday(date) !== day) return count;
+        const dailyEntry = normalizeEntry(profile, entries[keyFor(profile.id, date)], date);
+        const morningMisses = profile.morningItems.filter(
+          (item) => !dailyEntry.morningChecks[item.id]
+        ).length;
+        const nightMisses = profile.nightItems.filter(
+          (item) => !dailyEntry.nightChecks[item.id]
+        ).length;
+        return count + morningMisses + nightMisses;
+      }, 0),
+    })).sort((left, right) => right.missedCount - left.missedCount);
+
+    return {
+      taskInsights,
+      weekdayMisses,
+    };
+  }, [entries, insightDates, profile]);
 
   async function addListItem(field, label) {
     if (!label.trim()) return;
@@ -739,6 +1097,13 @@ export default function App() {
     );
   }
 
+  async function enableNotifications() {
+    if (typeof Notification === "undefined") return;
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  }
+
   return (
     <div className="app-shell">
       <div className="topbar">
@@ -769,12 +1134,25 @@ export default function App() {
             ))}
           </select>
 
-          <button className="btn-secondary" onClick={() => setView("overview")}>
+          <button
+            className={view === "overview" ? "btn-primary" : "btn-secondary"}
+            onClick={() => setView("overview")}
+          >
             Overview
           </button>
 
-          <button className="btn-secondary" onClick={() => setView("detail")}>
+          <button
+            className={view === "detail" ? "btn-primary" : "btn-secondary"}
+            onClick={() => setView("detail")}
+          >
             Detail
+          </button>
+
+          <button
+            className={view === "review" ? "btn-primary" : "btn-secondary"}
+            onClick={() => setView("review")}
+          >
+            Review
           </button>
 
           <button className="btn-primary" onClick={exportSummary}>
@@ -867,6 +1245,127 @@ export default function App() {
         </div>
       )}
 
+      {view === "review" && (
+        <div className="grid">
+          <div className="grid review-kpis">
+            <div className="card">
+              <div className="muted">7-Day Morning Streak</div>
+              <div className="review-score">{streaks.morning} days</div>
+            </div>
+            <div className="card">
+              <div className="muted">7-Day Night Streak</div>
+              <div className="review-score">{streaks.night} days</div>
+            </div>
+            <div className="card">
+              <div className="muted">7-Day Hydration Streak</div>
+              <div className="review-score">{streaks.hydration} days</div>
+            </div>
+          </div>
+
+          <div className="grid grid-2">
+            <div className="card">
+              <div style={{ fontWeight: 900, fontSize: 18 }}>Weekly Review</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                {profile.displayName} over the last 7 days ending {selectedDate}
+              </div>
+
+              <div className="trend-list" style={{ marginTop: 16 }}>
+                {selectedProfileReview.map((day) => (
+                  <div className="trend-row" key={day.date}>
+                    <div className="trend-label">
+                      <strong>{day.weekday}</strong>
+                      <span className="muted">{day.date}</span>
+                    </div>
+                    <div className="trend-metrics">
+                      <div className="mini-trend">
+                        <span>Morning</span>
+                        <div className="progress">
+                          <div style={{ width: `${day.morningPct}%` }} />
+                        </div>
+                      </div>
+                      <div className="mini-trend">
+                        <span>Night</span>
+                        <div className="progress">
+                          <div style={{ width: `${day.nightPct}%` }} />
+                        </div>
+                      </div>
+                      <div className="mini-trend">
+                        <span>Meds</span>
+                        <div className="progress">
+                          <div style={{ width: `${day.medVitPct}%` }} />
+                        </div>
+                      </div>
+                      <div className="mini-trend">
+                        <span>Water</span>
+                        <div className="progress">
+                          <div style={{ width: `${day.hydrationPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card">
+              <div style={{ fontWeight: 900, fontSize: 18 }}>Habit Insights</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Most-missed routine items across the last 30 days
+              </div>
+
+              <div style={{ marginTop: 16 }}>
+                {habitInsights.taskInsights.map((task) => (
+                  <div className="insight-row" key={task.id}>
+                    <div>
+                      <div style={{ fontWeight: 800 }}>{task.label}</div>
+                      <div className="muted">
+                        Missed {task.missedCount} times | most often on {task.mostMissedDay}
+                      </div>
+                    </div>
+                    <span className={statusClass(Math.max(0, 100 - task.missedCount * 5))}>
+                      {task.missedCount} missed
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 18 }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Toughest Days</div>
+                <div className="weekday-grid">
+                  {habitInsights.weekdayMisses.map((day) => (
+                    <div className="weekday-card" key={day.day}>
+                      <div style={{ fontWeight: 800 }}>{day.day}</div>
+                      <div className="muted">{day.missedCount} missed checks</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ fontWeight: 900, fontSize: 18 }}>Family Snapshot</div>
+            <div className="muted" style={{ marginTop: 4 }}>
+              Weekly averages across morning, night, and hydration
+            </div>
+
+            <div className="grid grid-overview" style={{ marginTop: 16 }}>
+              {familyWeeklySummary.map((row) => (
+                <div className="card" key={row.profile.id}>
+                  <div className="row space-between">
+                    <div style={{ fontWeight: 900 }}>{row.profile.displayName}</div>
+                    <span className={statusClass(row.weeklyScore)}>{row.weeklyScore}%</span>
+                  </div>
+                  <div style={{ marginTop: 10 }} className="progress">
+                    <div style={{ width: `${row.weeklyScore}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {view === "detail" && (
         <div className="grid">
           <div className="card">
@@ -951,11 +1450,14 @@ export default function App() {
 
               <div style={{ marginTop: 12 }}>
                 {(tab === "morning" ? profile.morningItems : profile.nightItems).map(
-                  (item) => (
+                  (item) => {
+                    const tooltip = getTaskTooltip(item.label);
+
+                    return (
                     <label
                       className="check-row"
                       key={item.id}
-                      title={getTaskTooltip(item.label) || undefined}
+                      title={tooltip || undefined}
                     >
                       <input
                         type="checkbox"
@@ -977,9 +1479,23 @@ export default function App() {
                           });
                         }}
                       />
-                      <span>{item.label}</span>
+                      <span title={tooltip || undefined}>{item.label}</span>
                     </label>
-                  )
+                    );
+                  }
+                )}
+              </div>
+
+              <div className="row" style={{ marginTop: 16 }}>
+                {tab === "morning" && (
+                  <button className="btn-primary" onClick={completeCurrentMorningTasks}>
+                    Complete All Morning Tasks
+                  </button>
+                )}
+                {tab === "night" && (
+                  <button className="btn-secondary" onClick={copyYesterdayPriorities}>
+                    Copy Yesterday&apos;s Priorities
+                  </button>
                 )}
               </div>
 
@@ -1273,6 +1789,10 @@ export default function App() {
                   >
                     Undo
                   </button>
+
+                  <button className="btn-secondary" onClick={resetHydration}>
+                    Reset Hydration
+                  </button>
                 </div>
 
                 <div style={{ marginTop: 12 }}>
@@ -1330,6 +1850,77 @@ export default function App() {
                       await persistProfiles(next);
                     }}
                   />
+                </div>
+              </div>
+
+              <div className="card">
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 12 }}>
+                  Reminders
+                </div>
+
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={reminderSettings.enabled}
+                    onChange={(e) =>
+                      setReminderSettings((prev) => ({
+                        ...prev,
+                        enabled: e.target.checked,
+                      }))
+                    }
+                  />
+                  <span>Enable daily reminder checks while the app is open</span>
+                </label>
+
+                <div className="grid grid-2" style={{ marginTop: 12 }}>
+                  <div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Morning reminder time
+                    </div>
+                    <input
+                      type="time"
+                      value={reminderSettings.morningTime}
+                      onChange={(e) =>
+                        setReminderSettings((prev) => ({
+                          ...prev,
+                          morningTime: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Night reminder time
+                    </div>
+                    <input
+                      type="time"
+                      value={reminderSettings.nightTime}
+                      onChange={(e) =>
+                        setReminderSettings((prev) => ({
+                          ...prev,
+                          nightTime: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="row" style={{ marginTop: 12 }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={enableNotifications}
+                    disabled={notificationPermission === "granted"}
+                  >
+                    {notificationPermission === "granted"
+                      ? "Notifications Enabled"
+                      : "Enable Browser Notifications"}
+                  </button>
+                  <div className="muted">
+                    {notificationPermission === "unsupported"
+                      ? "This browser does not support notifications."
+                      : `Permission: ${notificationPermission}`}
+                  </div>
                 </div>
               </div>
 
