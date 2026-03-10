@@ -694,7 +694,7 @@ export default function App() {
   }
 
   async function exportSummary() {
-    const lines = [`Rush Family Daily Routines - ${selectedDate}`, ""];
+    const lines = [`Rush Family Daily Routine Tracker - ${selectedDate}`, ""];
 
     overviewRows.forEach((row) => {
       lines.push(
@@ -722,7 +722,7 @@ export default function App() {
     <div className="app-shell">
       <div className="topbar">
         <div className="brand">
-          <h1>Rush Family Daily Routines</h1>
+          <h1>Rush Family Daily Routine Tracker</h1>
           <div className="subtext">
             Offline-first - {hasSupabaseConfig ? "Supabase sync" : "Local-only mode"} -{" "}
             {isOnline ? "Online" : "Offline"} -{" "}

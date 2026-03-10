@@ -1,6 +1,6 @@
 {
-  "name": "Rush Family Rituals",
-  "short_name": "Rituals",
+  "name": "Rush Family Daily Routine Tracker",
+  "short_name": "Routine Tracker",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0f0b18",
