@@ -1469,6 +1469,13 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <div
+        className="app-watermark"
+        aria-hidden="true"
+        style={{
+          backgroundImage: `url(${import.meta.env.BASE_URL}family/family-crest.png)`,
+        }}
+      />
       <div className="topbar">
         <div className="brand">
           <h1>Rush Family Daily Routine Tracker</h1>

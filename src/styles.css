@@ -36,9 +36,23 @@ select {
 }
 
 .app-shell {
+  position: relative;
   max-width: 1180px;
   margin: 0 auto;
   padding: 20px;
+  isolation: isolate;
+}
+
+.app-watermark {
+  position: fixed;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: min(58vw, 680px);
+  opacity: 0.08;
+  filter: grayscale(0.15) saturate(0.9);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .app-version {
@@ -609,6 +623,11 @@ input[type="checkbox"] {
 @media (max-width: 768px) {
   .app-version {
     text-align: left;
+  }
+
+  .app-watermark {
+    background-size: min(82vw, 420px);
+    opacity: 0.06;
   }
 
   .about-header {
