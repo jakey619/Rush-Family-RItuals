@@ -357,6 +357,31 @@ function getTaskTooltip(label) {
   return "";
 }
 
+function priorityTextKey(text) {
+  return text.trim().toLowerCase();
+}
+
+function mergePriorityLists(primaryItems, secondaryItems = []) {
+  const seen = new Set();
+  const merged = [];
+
+  [...primaryItems, ...secondaryItems].forEach((item) => {
+    const text = item?.text?.trim() || "";
+    if (!text) return;
+
+    const key = priorityTextKey(text);
+    if (seen.has(key)) return;
+
+    seen.add(key);
+    merged.push({
+      text,
+      done: Boolean(item?.done),
+    });
+  });
+
+  return normalizePriorities(merged);
+}
+
 function buildCarryForwardEntry(profile, date, allEntries) {
   const nextEntry = emptyEntry(profile, date);
   const previousDate = shiftDate(date, -1);
@@ -966,15 +991,64 @@ export default function App() {
     return normalizePriorities(prev.nightPriorities);
   }
 
-  function updateLinkedMorningPriorities(values) {
+  function syncCurrentNightPrioritiesFromMorning(updatedMorningSource) {
+    const profile = currentProfile();
+    if (!profile) return;
+
+    const currentKey = keyFor(selectedProfileId, selectedDate);
+    const currentExisting = normalizeEntry(
+      profile,
+      entriesRef.current[currentKey],
+      selectedDate
+    );
+    const carriedSourceKeys = new Set(
+      normalizePriorities(updatedMorningSource)
+        .map((item) => priorityTextKey(item.text || ""))
+        .filter(Boolean)
+    );
+    const preservedNightItems = normalizePriorities(currentExisting.nightPriorities).filter(
+      (item) => {
+        const key = priorityTextKey(item.text || "");
+        return key && !carriedSourceKeys.has(key);
+      }
+    );
+
+    const nextNightPriorities = mergePriorityLists(
+      getOpenPriorities(updatedMorningSource),
+      preservedNightItems
+    );
+
+    if (
+      JSON.stringify(currentExisting.nightPriorities) ===
+      JSON.stringify(nextNightPriorities)
+    ) {
+      return;
+    }
+
+    updateEntry({
+      ...currentExisting,
+      nightPriorities: nextNightPriorities,
+    });
+  }
+
+  function updateLinkedMorningPriorities(valuesOrMutator) {
     const prevDate = shiftDate(selectedDate, -1);
     const profile = currentProfile();
     const prevKey = keyFor(selectedProfileId, prevDate);
     const existingPrev = normalizeEntry(profile, entriesRef.current[prevKey], prevDate);
 
     const next = deepClone(existingPrev);
-    next.nightPriorities = values;
+    const nextItems = normalizePriorities(existingPrev.nightPriorities);
+
+    if (typeof valuesOrMutator === "function") {
+      valuesOrMutator(nextItems);
+      next.nightPriorities = normalizePriorities(nextItems);
+    } else {
+      next.nightPriorities = normalizePriorities(valuesOrMutator);
+    }
+
     updateEntry(next);
+    syncCurrentNightPrioritiesFromMorning(next.nightPriorities);
   }
 
   function copyYesterdayPriorities() {
@@ -1003,7 +1077,7 @@ export default function App() {
   function updateMorningLinkedPriorities(mutator) {
     const nextItems = normalizePriorities(linkedPriorities());
     mutator(nextItems);
-    updateLinkedMorningPriorities(normalizePriorities(nextItems));
+    updateLinkedMorningPriorities(nextItems);
   }
 
   function updateActionItems(mutator) {
@@ -1887,8 +1961,8 @@ export default function App() {
                   </div>
                   <div className="muted">
                     {tab === "morning"
-                      ? "Night priorities carry into the next morning."
-                      : "These priorities feed tomorrow morning."}
+                      ? "Carryover from last night. Check it off here to close it."
+                      : "Open items from this morning roll into tonight automatically."}
                   </div>
                 </div>
 
@@ -1972,65 +2046,61 @@ export default function App() {
 
               <div style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Priorities</div>
-                <ChecklistEditor
-                  items={tab === "morning" ? linkedPriorities() : entry.nightPriorities}
-                  minRows={3}
-                  addLabel="Add Priority"
-                  placeholder="Add a priority"
-                  onToggle={(index, checked) => {
-                    const runUpdate =
-                      tab === "morning"
-                        ? updateMorningLinkedPriorities
-                        : updateNightPriorities;
-
-                    runUpdate((items) => {
-                      items[index] = {
-                        ...(items[index] || { text: "", done: false }),
-                        done: checked,
-                      };
-                    });
-                  }}
-                  onChangeText={(index, value) => {
-                    const runUpdate =
-                      tab === "morning"
-                        ? updateMorningLinkedPriorities
-                        : updateNightPriorities;
-
-                    runUpdate((items) => {
-                      items[index] = {
-                        ...(items[index] || { text: "", done: false }),
-                        text: value,
-                      };
-                    });
-                  }}
-                  onAdd={() => {
-                    const runUpdate =
-                      tab === "morning"
-                        ? updateMorningLinkedPriorities
-                        : updateNightPriorities;
-
-                    runUpdate((items) => {
-                      items.push({ text: "", done: false });
-                    });
-                  }}
-                  onRemove={(index) => {
-                    const runUpdate =
-                      tab === "morning"
-                        ? updateMorningLinkedPriorities
-                        : updateNightPriorities;
-
-                    runUpdate((items) => {
-                      if (index < 3) {
-                        items[index] = { text: "", done: false };
-                        return;
-                      }
-                      items.splice(index, 1);
-                    });
-                  }}
-                />
+                {tab === "morning" ? (
+                  <ChecklistReview
+                    items={linkedPriorities()}
+                    emptyMessage="No carryover priorities from last night."
+                    onToggle={(index, checked) => {
+                      updateMorningLinkedPriorities((items) => {
+                        items[index] = {
+                          ...(items[index] || { text: "", done: false }),
+                          done: checked,
+                        };
+                      });
+                    }}
+                  />
+                ) : (
+                  <ChecklistEditor
+                    items={entry.nightPriorities}
+                    minRows={3}
+                    addLabel="Add Priority"
+                    placeholder="Add a priority"
+                    onToggle={(index, checked) => {
+                      updateNightPriorities((items) => {
+                        items[index] = {
+                          ...(items[index] || { text: "", done: false }),
+                          done: checked,
+                        };
+                      });
+                    }}
+                    onChangeText={(index, value) => {
+                      updateNightPriorities((items) => {
+                        items[index] = {
+                          ...(items[index] || { text: "", done: false }),
+                          text: value,
+                        };
+                      });
+                    }}
+                    onAdd={() => {
+                      updateNightPriorities((items) => {
+                        items.push({ text: "", done: false });
+                      });
+                    }}
+                    onRemove={(index) => {
+                      updateNightPriorities((items) => {
+                        if (index < 3) {
+                          items[index] = { text: "", done: false };
+                          return;
+                        }
+                        items.splice(index, 1);
+                      });
+                    }}
+                  />
+                )}
                 <div className="muted" style={{ marginTop: 8 }}>
-                  Checked priorities stay on the day they were completed. Only unchecked
-                  priorities carry forward automatically.
+                  {tab === "morning"
+                    ? "Anything still open this morning stays alive for tonight. Checked items close out."
+                    : "Tonight's open items become tomorrow morning's carryover priorities."}
                 </div>
               </div>
 
@@ -2605,7 +2675,12 @@ export default function App() {
                   Rush Family Daily Routine Tracker
                 </div>
               </div>
-              <span className="badge">v{APP_VERSION}</span>
+              <div className="about-header-actions">
+                <span className="badge">v{APP_VERSION}</span>
+                <button className="modal-close" onClick={closeAbout} aria-label="Close About">
+                  x
+                </button>
+              </div>
             </div>
 
             <div className="about-grid">
@@ -2826,6 +2901,29 @@ function ChecklistEditor({
           {addLabel}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ChecklistReview({ items, onToggle, emptyMessage }) {
+  const visibleItems = normalizeChecklistItems(items).filter((item) => item.text.trim());
+
+  if (!visibleItems.length) {
+    return <div className="muted">{emptyMessage}</div>;
+  }
+
+  return (
+    <div className="checklist-list">
+      {visibleItems.map((item, index) => (
+        <label className="check-row checklist-review-row" key={`${index}-${item.text}`}>
+          <input
+            type="checkbox"
+            checked={!!item.done}
+            onChange={(e) => onToggle(index, e.target.checked)}
+          />
+          <span>{item.text}</span>
+        </label>
+      ))}
     </div>
   );
 }
