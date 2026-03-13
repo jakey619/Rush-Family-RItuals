@@ -1,13 +1,17 @@
 {
   "name": "rush-family-rituals",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "version:show": "npm pkg get version",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

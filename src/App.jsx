@@ -11,10 +11,16 @@ import {
 import {
   DEFAULT_PROFILES,
   emptyEntry,
+  getOpenChecklistItems,
   getVerseForDate,
+  getOpenPriorities,
+  normalizeChecklistItems,
+  parseDateKey,
+  normalizePriorities,
   shiftDate,
   toDateKey,
 } from "./lib/defaults";
+import { APP_CREATOR, VERSION_HISTORY } from "./lib/versionHistory";
 
 function keyFor(profileId, date) {
   return `${profileId}__${date}`;
@@ -22,6 +28,7 @@ function keyFor(profileId, date) {
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const REMINDER_SETTINGS_KEY = "routine_reminder_settings_v1";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.3.0";
 
 function statusClass(pct) {
   if (pct === 100) return "badge complete";
@@ -41,19 +48,55 @@ function calcHydrationPct(entry) {
     : 0;
 }
 
+function calcMedVitPct(profile, entry) {
+  const medsPct = calcPctFromIds(
+    profile.medications.map((item) => item.id),
+    entry.medChecks
+  );
+  const vitaminsPct = calcPctFromIds(
+    profile.vitamins.map((item) => item.id),
+    entry.vitaminChecks
+  );
+
+  return profile.medications.length || profile.vitamins.length
+    ? Math.round((medsPct + vitaminsPct) / 2)
+    : 0;
+}
+
+function calcOverallPct(profile, entry) {
+  const values = [
+    calcPctFromIds(profile.morningItems.map((item) => item.id), entry.morningChecks),
+    calcPctFromIds(profile.nightItems.map((item) => item.id), entry.nightChecks),
+    calcMedVitPct(profile, entry),
+    calcHydrationPct(entry),
+  ];
+
+  if (profile.exerciseItems.length) {
+    values.push(
+      calcPctFromIds(profile.exerciseItems.map((item) => item.id), entry.exerciseChecks)
+    );
+  }
+
+  return average(values);
+}
+
 function average(values) {
   if (!values.length) return 0;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
 function toWeekday(dateKey) {
-  return WEEKDAY_LABELS[new Date(`${dateKey}T12:00:00`).getDay()];
+  return WEEKDAY_LABELS[parseDateKey(dateKey).getDay()];
 }
 
 function getDateRange(endDate, days) {
   return Array.from({ length: days }, (_, index) =>
     shiftDate(endDate, index - (days - 1))
   );
+}
+
+function countRemaining(ids, checks = {}) {
+  return ids.filter((id) => !checks[id]).length;
 }
 
 function getReminderDefaults() {
@@ -252,9 +295,8 @@ function normalizeEntry(profile, rawEntry, date) {
       ...(rawEntry?.exerciseChecks || {}),
     },
 
-    nightPriorities: Array.isArray(rawEntry?.nightPriorities)
-      ? rawEntry.nightPriorities
-      : ["", "", ""],
+    nightPriorities: normalizePriorities(rawEntry?.nightPriorities),
+    actionItems: normalizeChecklistItems(rawEntry?.actionItems),
 
     waterEntries: Array.isArray(rawEntry?.waterEntries)
       ? rawEntry.waterEntries
@@ -325,15 +367,20 @@ function buildCarryForwardEntry(profile, date, allEntries) {
   }
 
   const previousEntry = normalizeEntry(profile, previousRaw, previousDate);
-  const carriedPriorities = previousEntry.nightPriorities?.some(Boolean)
-    ? [...previousEntry.nightPriorities]
-    : nextEntry.nightPriorities;
+  const carriedPriorities = normalizePriorities([
+    ...getOpenPriorities(previousEntry.nightPriorities),
+    ...nextEntry.nightPriorities,
+  ]);
+  const carriedActionItems = normalizeChecklistItems(
+    getOpenChecklistItems(previousEntry.actionItems)
+  );
 
   return normalizeEntry(
     profile,
     {
       ...nextEntry,
       nightPriorities: carriedPriorities,
+      actionItems: carriedActionItems,
       morningDistraction: previousEntry.morningDistraction || "",
       nightDistraction: previousEntry.nightDistraction || "",
     },
@@ -358,6 +405,7 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(getOnlineStatus);
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
   const [familySectionIndex, setFamilySectionIndex] = useState(0);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [reminderSettings, setReminderSettings] = useState(getReminderDefaults);
   const [notificationPermission, setNotificationPermission] = useState(() =>
     typeof Notification === "undefined" ? "unsupported" : Notification.permission
@@ -915,7 +963,7 @@ export default function App() {
       entries[keyFor(selectedProfileId, prevDate)],
       prevDate
     );
-    return prev.nightPriorities || ["", "", ""];
+    return normalizePriorities(prev.nightPriorities);
   }
 
   function updateLinkedMorningPriorities(values) {
@@ -938,62 +986,33 @@ export default function App() {
     );
 
     updateCurrentEntry((draft) => {
-      draft.nightPriorities = [...(previousEntry.nightPriorities || ["", "", ""])];
+      draft.nightPriorities = normalizePriorities(
+        getOpenPriorities(previousEntry.nightPriorities)
+      );
     });
   }
 
-  const overviewRows = useMemo(() => {
-    return profiles.map((profile) => {
-      const entry = normalizeEntry(
-        profile,
-        entries[keyFor(profile.id, selectedDate)],
-        selectedDate
-      );
-
-      const morningPct = calcPctFromIds(
-        profile.morningItems.map((x) => x.id),
-        entry.morningChecks
-      );
-
-      const nightPct = calcPctFromIds(
-        profile.nightItems.map((x) => x.id),
-        entry.nightChecks
-      );
-
-      const medsPct = calcPctFromIds(
-        profile.medications.map((x) => x.id),
-        entry.medChecks
-      );
-
-      const vitaminsPct = calcPctFromIds(
-        profile.vitamins.map((x) => x.id),
-        entry.vitaminChecks
-      );
-      const exercisePct = calcPctFromIds(
-        profile.exerciseItems.map((x) => x.id),
-        entry.exerciseChecks
-      );
-
-      const medVitPct =
-        profile.medications.length || profile.vitamins.length
-          ? Math.round((medsPct + vitaminsPct) / 2)
-          : 0;
-
-      const hydrationPct = entry.hydrationGoal
-        ? Math.min(100, Math.round((entry.totalWater / entry.hydrationGoal) * 100))
-        : 0;
-
-      return {
-        profile,
-        entry,
-        morningPct,
-        nightPct,
-        medVitPct,
-        exercisePct,
-        hydrationPct,
-      };
+  function updateNightPriorities(mutator) {
+    updateCurrentEntry((draft) => {
+      const nextItems = normalizePriorities(draft.nightPriorities);
+      mutator(nextItems);
+      draft.nightPriorities = normalizePriorities(nextItems);
     });
-  }, [profiles, entries, selectedDate]);
+  }
+
+  function updateMorningLinkedPriorities(mutator) {
+    const nextItems = normalizePriorities(linkedPriorities());
+    mutator(nextItems);
+    updateLinkedMorningPriorities(normalizePriorities(nextItems));
+  }
+
+  function updateActionItems(mutator) {
+    updateCurrentEntry((draft) => {
+      const nextItems = normalizeChecklistItems(draft.actionItems);
+      mutator(nextItems);
+      draft.actionItems = normalizeChecklistItems(nextItems);
+    });
+  }
 
   const profile = currentProfile();
   const entry = normalizeEntry(profile, currentEntry(), selectedDate);
@@ -1002,49 +1021,159 @@ export default function App() {
   const reviewDates = useMemo(() => getDateRange(selectedDate, 7), [selectedDate]);
   const insightDates = useMemo(() => getDateRange(selectedDate, 30), [selectedDate]);
 
-  const selectedProfileReview = useMemo(() => {
-    return reviewDates.map((date) => {
-      const dailyEntry = normalizeEntry(
-        profile,
-        entries[keyFor(profile.id, date)],
-        date
-      );
+  function summarizeProfileDay(targetProfile, date) {
+    const dailyEntry = normalizeEntry(
+      targetProfile,
+      entries[keyFor(targetProfile.id, date)],
+      date
+    );
+    const morningPct = calcPctFromIds(
+      targetProfile.morningItems.map((item) => item.id),
+      dailyEntry.morningChecks
+    );
+    const nightPct = calcPctFromIds(
+      targetProfile.nightItems.map((item) => item.id),
+      dailyEntry.nightChecks
+    );
+    const medVitPct = calcMedVitPct(targetProfile, dailyEntry);
+    const exercisePct = calcPctFromIds(
+      targetProfile.exerciseItems.map((item) => item.id),
+      dailyEntry.exerciseChecks
+    );
+    const hydrationPct = calcHydrationPct(dailyEntry);
+    const openPriorities = getOpenPriorities(dailyEntry.nightPriorities);
+    const openActionItems = getOpenChecklistItems(dailyEntry.actionItems);
 
-      const morningPct = calcPctFromIds(
-        profile.morningItems.map((item) => item.id),
+    return {
+      date,
+      weekday: toWeekday(date),
+      entry: dailyEntry,
+      morningPct,
+      nightPct,
+      medVitPct,
+      exercisePct,
+      hydrationPct,
+      overallPct: calcOverallPct(targetProfile, dailyEntry),
+      openPriorities,
+      openActionItems,
+      remainingMorning: countRemaining(
+        targetProfile.morningItems.map((item) => item.id),
         dailyEntry.morningChecks
-      );
-      const nightPct = calcPctFromIds(
-        profile.nightItems.map((item) => item.id),
+      ),
+      remainingNight: countRemaining(
+        targetProfile.nightItems.map((item) => item.id),
         dailyEntry.nightChecks
-      );
-      const medsPct = calcPctFromIds(
-        profile.medications.map((item) => item.id),
-        dailyEntry.medChecks
-      );
-      const vitaminsPct = calcPctFromIds(
-        profile.vitamins.map((item) => item.id),
-        dailyEntry.vitaminChecks
-      );
-      const medVitPct =
-        profile.medications.length || profile.vitamins.length
-          ? Math.round((medsPct + vitaminsPct) / 2)
-          : 0;
-      const exercisePct = calcPctFromIds(
-        profile.exerciseItems.map((item) => item.id),
-        dailyEntry.exerciseChecks
-      );
+      ),
+    };
+  }
+
+  const overviewRows = useMemo(() => {
+    return profiles.map((profile) => {
+      const today = summarizeProfileDay(profile, selectedDate);
+      const weeklyDays = reviewDates.map((date) => summarizeProfileDay(profile, date));
+      const last7Average = average(weeklyDays.map((day) => day.overallPct));
+      const trendDelta = today.overallPct - weeklyDays[0].overallPct;
+      let onTrackStreak = 0;
+
+      for (let index = weeklyDays.length - 1; index >= 0; index -= 1) {
+        if (weeklyDays[index].overallPct === 100) {
+          onTrackStreak += 1;
+        } else {
+          break;
+        }
+      }
 
       return {
-        date,
-        weekday: toWeekday(date),
-        morningPct,
-        nightPct,
-        medVitPct,
-        exercisePct,
-        hydrationPct: calcHydrationPct(dailyEntry),
+        profile,
+        ...today,
+        last7Average,
+        trendDelta,
+        onTrackStreak,
       };
     });
+  }, [profiles, selectedDate, reviewDates, entries]);
+
+  const familyDashboard = useMemo(() => {
+    const completedProfiles = overviewRows.filter(
+      (row) =>
+        row.morningPct === 100 &&
+        row.nightPct === 100 &&
+        row.hydrationPct === 100 &&
+        (!row.profile.exerciseItems.length || row.exercisePct === 100)
+    ).length;
+    const openPriorityCount = overviewRows.reduce(
+      (sum, row) => sum + row.openPriorities.length,
+      0
+    );
+    const openActionCount = overviewRows.reduce(
+      (sum, row) => sum + row.openActionItems.length,
+      0
+    );
+    const attentionRows = overviewRows
+      .filter(
+        (row) =>
+          row.remainingMorning > 0 ||
+          row.remainingNight > 0 ||
+          row.openPriorities.length > 0 ||
+          row.openActionItems.length > 0
+      )
+      .sort((left, right) => {
+        const leftWeight =
+          left.openPriorities.length * 8 +
+          left.openActionItems.length * 6 +
+          left.remainingMorning +
+          left.remainingNight +
+          (100 - left.overallPct);
+        const rightWeight =
+          right.openPriorities.length * 8 +
+          right.openActionItems.length * 6 +
+          right.remainingMorning +
+          right.remainingNight +
+          (100 - right.overallPct);
+        return rightWeight - leftWeight;
+      })
+      .slice(0, 3);
+
+    let spotlight = "Everyone is lined up well for today.";
+
+    if (attentionRows.length) {
+      const topRow = attentionRows[0];
+      spotlight = `${topRow.profile.displayName} needs attention: ${
+        topRow.remainingMorning + topRow.remainingNight
+      } routine items left, ${topRow.openPriorities.length} open priorit${
+        topRow.openPriorities.length === 1 ? "y" : "ies"
+      }, and ${topRow.openActionItems.length} action item${
+        topRow.openActionItems.length === 1 ? "" : "s"
+      } still open.`;
+    }
+
+    const weeklyLeader = [...overviewRows].sort(
+      (left, right) => right.last7Average - left.last7Average
+    )[0];
+    const momentumLeader = [...overviewRows].sort(
+      (left, right) => right.trendDelta - left.trendDelta
+    )[0];
+    const streakLeader = [...overviewRows].sort(
+      (left, right) => right.onTrackStreak - left.onTrackStreak
+    )[0];
+
+    return {
+      familyScore: overviewRows.length
+        ? average(overviewRows.map((row) => row.overallPct))
+        : 0,
+      completedProfiles,
+      openPriorityCount,
+      openActionCount,
+      attentionRows,
+      spotlight,
+      weeklyLeader,
+      momentumLeader,
+      streakLeader,
+    };
+  }, [overviewRows]);
+
+  const selectedProfileReview = useMemo(() => {
+    return reviewDates.map((date) => summarizeProfileDay(profile, date));
   }, [entries, profile, reviewDates]);
 
   const streaks = useMemo(() => {
@@ -1083,34 +1212,9 @@ export default function App() {
 
   const familyWeeklySummary = useMemo(() => {
     return profiles.map((reviewProfile) => {
-      const values = reviewDates.map((date) => {
-        const dailyEntry = normalizeEntry(
-          reviewProfile,
-          entries[keyFor(reviewProfile.id, date)],
-          date
-        );
-
-        const morningPct = calcPctFromIds(
-          reviewProfile.morningItems.map((item) => item.id),
-          dailyEntry.morningChecks
-        );
-        const nightPct = calcPctFromIds(
-          reviewProfile.nightItems.map((item) => item.id),
-          dailyEntry.nightChecks
-        );
-
-        const exercisePct = calcPctFromIds(
-          reviewProfile.exerciseItems.map((item) => item.id),
-          dailyEntry.exerciseChecks
-        );
-
-        const scoreParts = [morningPct, nightPct, calcHydrationPct(dailyEntry)];
-        if (reviewProfile.exerciseItems.length) {
-          scoreParts.push(exercisePct);
-        }
-
-        return average(scoreParts);
-      });
+      const values = reviewDates.map(
+        (date) => summarizeProfileDay(reviewProfile, date).overallPct
+      );
 
       return {
         profile: reviewProfile,
@@ -1275,6 +1379,14 @@ export default function App() {
     setFamilyModalOpen(false);
   }
 
+  function openAbout() {
+    setAboutOpen(true);
+  }
+
+  function closeAbout() {
+    setAboutOpen(false);
+  }
+
   function stepFamilySection(direction) {
     setFamilySectionIndex((currentIndex) =>
       clampIndex(currentIndex + direction, FAMILY_REFERENCE_SECTIONS.length)
@@ -1289,7 +1401,7 @@ export default function App() {
           <div className="subtext">
             Offline-first - {hasSupabaseConfig ? "Supabase sync" : "Local-only mode"} -{" "}
             {isOnline ? "Online" : "Offline"} -{" "}
-            {syncing ? "Syncing..." : "Ready"}
+            {syncing ? "Syncing..." : "Ready"} - v{APP_VERSION}
           </div>
         </div>
 
@@ -1315,7 +1427,7 @@ export default function App() {
             className={view === "overview" ? "btn-primary" : "btn-secondary"}
             onClick={() => setView("overview")}
           >
-            Overview
+            Family Dashboard
           </button>
 
           <button
@@ -1339,6 +1451,13 @@ export default function App() {
             Family
           </button>
 
+          <button
+            className={aboutOpen ? "btn-primary" : "btn-secondary"}
+            onClick={openAbout}
+          >
+            About
+          </button>
+
           <button className="btn-primary" onClick={exportSummary}>
             Export Day Summary
           </button>
@@ -1360,83 +1479,218 @@ export default function App() {
       </div>
 
       {view === "overview" && (
-        <div className="grid grid-overview">
-          {overviewRows.map((row) => (
-            <div
-              key={row.profile.id}
-              className="card click-card"
-              onClick={() => {
-                setSelectedProfileId(row.profile.id);
-                setView("detail");
-              }}
-            >
-              <div className="row space-between">
-                <div style={{ fontWeight: 900, fontSize: 18 }}>
-                  {row.profile.displayName}
-                </div>
-                <span
-                  className={statusClass(
-                    Math.round(
-                      (row.morningPct +
-                        row.nightPct +
-                        row.medVitPct +
-                        row.hydrationPct) /
-                        4
-                    )
-                  )}
-                >
-                  {row.morningPct ||
-                  row.nightPct ||
-                  row.medVitPct ||
-                  row.exercisePct ||
-                  row.hydrationPct
-                    ? "In Progress"
-                    : "Not Started"}
-                </span>
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <div className="muted">Morning {row.morningPct}%</div>
-                <div className="progress">
-                  <div style={{ width: `${row.morningPct}%` }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <div className="muted">Night {row.nightPct}%</div>
-                <div className="progress">
-                  <div style={{ width: `${row.nightPct}%` }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <div className="muted">Meds/Vitamins {row.medVitPct}%</div>
-                <div className="progress">
-                  <div style={{ width: `${row.medVitPct}%` }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <div className="muted">Exercise {row.exercisePct}%</div>
-                <div className="progress">
-                  <div style={{ width: `${row.exercisePct}%` }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <div className="muted">Hydration {row.hydrationPct}%</div>
-                <div className="progress">
-                  <div style={{ width: `${row.hydrationPct}%` }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }} className="muted">
-                Sleep: {row.entry.sleepHours || "-"} hrs | Weight:{" "}
-                {row.entry.weight || "-"} | Read: {row.entry.readHours || 0} | Audio:{" "}
-                {row.entry.audiobookHours || 0}
+        <div className="grid">
+          <div className="grid review-kpis">
+            <div className="card">
+              <div className="muted">Family Score</div>
+              <div className="review-score">{familyDashboard.familyScore}%</div>
+            </div>
+            <div className="card">
+              <div className="muted">Profiles Fully On Track</div>
+              <div className="review-score">
+                {familyDashboard.completedProfiles}/{profiles.length}
               </div>
             </div>
-          ))}
+            <div className="card">
+              <div className="muted">Open Priorities</div>
+              <div className="review-score">{familyDashboard.openPriorityCount}</div>
+            </div>
+            <div className="card">
+              <div className="muted">Open Action Items</div>
+              <div className="review-score">{familyDashboard.openActionCount}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-2">
+            <div className="card">
+              <div style={{ fontWeight: 900, fontSize: 18 }}>Needs Attention Now</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                {selectedDate} snapshot
+              </div>
+              <div style={{ marginTop: 12 }}>{familyDashboard.spotlight}</div>
+
+              <div style={{ marginTop: 16 }}>
+                {familyDashboard.attentionRows.length ? (
+                  familyDashboard.attentionRows.map((row) => (
+                    <button
+                      key={`attention-${row.profile.id}`}
+                      className="dashboard-alert"
+                      onClick={() => {
+                        setSelectedProfileId(row.profile.id);
+                        setView("detail");
+                        setTab("actions");
+                      }}
+                    >
+                      <div className="row space-between">
+                        <strong>{row.profile.displayName}</strong>
+                        <span className={statusClass(row.overallPct)}>{row.overallPct}%</span>
+                      </div>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        {row.remainingMorning + row.remainingNight} routine items left,{" "}
+                        {row.openPriorities.length} priorities, {row.openActionItems.length} actions
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="muted">No urgent gaps right now.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="card">
+              <div style={{ fontWeight: 900, fontSize: 18 }}>Weekly Wins</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Last 7 days ending {selectedDate}
+              </div>
+
+              <div className="dashboard-awards">
+                <div className="award-card">
+                  <div className="muted">Best 7-Day Average</div>
+                  <div style={{ fontWeight: 900, marginTop: 6 }}>
+                    {familyDashboard.weeklyLeader?.profile.displayName || "-"}
+                  </div>
+                  <div className="muted">
+                    {familyDashboard.weeklyLeader?.last7Average ?? 0}% average
+                  </div>
+                </div>
+
+                <div className="award-card">
+                  <div className="muted">Momentum Leader</div>
+                  <div style={{ fontWeight: 900, marginTop: 6 }}>
+                    {familyDashboard.momentumLeader?.profile.displayName || "-"}
+                  </div>
+                  <div className="muted">
+                    {familyDashboard.momentumLeader?.trendDelta > 0 ? "+" : ""}
+                    {familyDashboard.momentumLeader?.trendDelta ?? 0} points vs. 7 days ago
+                  </div>
+                </div>
+
+                <div className="award-card">
+                  <div className="muted">Current On-Track Streak</div>
+                  <div style={{ fontWeight: 900, marginTop: 6 }}>
+                    {familyDashboard.streakLeader?.profile.displayName || "-"}
+                  </div>
+                  <div className="muted">
+                    {familyDashboard.streakLeader?.onTrackStreak ?? 0} perfect day
+                    {(familyDashboard.streakLeader?.onTrackStreak ?? 0) === 1 ? "" : "s"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-overview">
+            {overviewRows.map((row) => (
+              <div
+                key={row.profile.id}
+                className="card click-card"
+                onClick={() => {
+                  setSelectedProfileId(row.profile.id);
+                  setView("detail");
+                }}
+              >
+                <div className="row space-between">
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>
+                    {row.profile.displayName}
+                  </div>
+                  <span className={statusClass(row.overallPct)}>
+                    {row.overallPct === 0
+                      ? "Not Started"
+                      : row.overallPct === 100
+                        ? "Complete"
+                      : `${row.overallPct}%`}
+                  </span>
+                </div>
+
+                <div className="overview-meta">
+                  <span>7-day avg {row.last7Average}%</span>
+                  <span>
+                    Trend {row.trendDelta > 0 ? "+" : ""}
+                    {row.trendDelta}
+                  </span>
+                  <span>
+                    Streak {row.onTrackStreak} day
+                    {row.onTrackStreak === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <div className="muted">Morning {row.morningPct}%</div>
+                  <div className="progress">
+                    <div style={{ width: `${row.morningPct}%` }} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <div className="muted">Night {row.nightPct}%</div>
+                  <div className="progress">
+                    <div style={{ width: `${row.nightPct}%` }} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <div className="muted">Meds/Vitamins {row.medVitPct}%</div>
+                  <div className="progress">
+                    <div style={{ width: `${row.medVitPct}%` }} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <div className="muted">Exercise {row.exercisePct}%</div>
+                  <div className="progress">
+                    <div style={{ width: `${row.exercisePct}%` }} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <div className="muted">Hydration {row.hydrationPct}%</div>
+                  <div className="progress">
+                    <div style={{ width: `${row.hydrationPct}%` }} />
+                  </div>
+                </div>
+
+                <div className="dashboard-focus">
+                  <div className="muted" style={{ marginBottom: 6 }}>
+                    Open Priorities
+                  </div>
+                  {row.openPriorities.length ? (
+                    row.openPriorities.map((priority, index) => (
+                      <div className="focus-chip" key={`${row.profile.id}-priority-${index}`}>
+                        {priority.text}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">All priorities cleared for the next day.</div>
+                  )}
+                </div>
+
+                <div className="dashboard-focus">
+                  <div className="muted" style={{ marginBottom: 6 }}>
+                    Open Action Items
+                  </div>
+                  {row.openActionItems.length ? (
+                    row.openActionItems.slice(0, 3).map((item, index) => (
+                      <div className="focus-chip" key={`${row.profile.id}-action-${index}`}>
+                        {item.text}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">No open action items.</div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 12 }} className="muted">
+                  Remaining: Morning {row.remainingMorning} | Night {row.remainingNight}
+                </div>
+
+                <div style={{ marginTop: 10 }} className="muted">
+                  Sleep: {row.entry.sleepHours || "-"} hrs | Weight:{" "}
+                  {row.entry.weight || "-"} | Read: {row.entry.readHours || 0} | Audio:{" "}
+                  {row.entry.audiobookHours || 0}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1610,6 +1864,12 @@ export default function App() {
                   Metrics
                 </button>
                 <button
+                  className={tab === "actions" ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setTab("actions")}
+                >
+                  Actions
+                </button>
+                <button
                   className={tab === "settings" ? "btn-primary" : "btn-secondary"}
                   onClick={() => setTab("settings")}
                 >
@@ -1713,30 +1973,66 @@ export default function App() {
 
               <div style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Priorities</div>
-                {[0, 1, 2].map((idx) => (
-                  <div key={idx} style={{ marginBottom: 8 }}>
-                    <input
-                      value={
-                        tab === "morning"
-                          ? linkedPriorities()[idx]
-                          : entry.nightPriorities[idx]
+                <ChecklistEditor
+                  items={tab === "morning" ? linkedPriorities() : entry.nightPriorities}
+                  minRows={3}
+                  addLabel="Add Priority"
+                  placeholder="Add a priority"
+                  onToggle={(index, checked) => {
+                    const runUpdate =
+                      tab === "morning"
+                        ? updateMorningLinkedPriorities
+                        : updateNightPriorities;
+
+                    runUpdate((items) => {
+                      items[index] = {
+                        ...(items[index] || { text: "", done: false }),
+                        done: checked,
+                      };
+                    });
+                  }}
+                  onChangeText={(index, value) => {
+                    const runUpdate =
+                      tab === "morning"
+                        ? updateMorningLinkedPriorities
+                        : updateNightPriorities;
+
+                    runUpdate((items) => {
+                      items[index] = {
+                        ...(items[index] || { text: "", done: false }),
+                        text: value,
+                      };
+                    });
+                  }}
+                  onAdd={() => {
+                    const runUpdate =
+                      tab === "morning"
+                        ? updateMorningLinkedPriorities
+                        : updateNightPriorities;
+
+                    runUpdate((items) => {
+                      items.push({ text: "", done: false });
+                    });
+                  }}
+                  onRemove={(index) => {
+                    const runUpdate =
+                      tab === "morning"
+                        ? updateMorningLinkedPriorities
+                        : updateNightPriorities;
+
+                    runUpdate((items) => {
+                      if (index < 3) {
+                        items[index] = { text: "", done: false };
+                        return;
                       }
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (tab === "morning") {
-                          const next = [...linkedPriorities()];
-                          next[idx] = value;
-                          updateLinkedMorningPriorities(next);
-                        } else {
-                          updateCurrentEntry((draft) => {
-                            draft.nightPriorities[idx] = value;
-                          });
-                        }
-                      }}
-                      placeholder={`Priority #${idx + 1}`}
-                    />
-                  </div>
-                ))}
+                      items.splice(index, 1);
+                    });
+                  }}
+                />
+                <div className="muted" style={{ marginTop: 8 }}>
+                  Checked priorities stay on the day they were completed. Only unchecked
+                  priorities carry forward automatically.
+                </div>
               </div>
 
               <div className="grid grid-2" style={{ marginTop: 12 }}>
@@ -1787,6 +2083,76 @@ export default function App() {
                     }}
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "actions" && (
+            <div className="card">
+              <div className="row space-between">
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>Action Items</div>
+                  <div className="muted">
+                    Per-person action tracker embedded in the app. Open items carry forward.
+                  </div>
+                </div>
+                <span
+                  className={statusClass(
+                    entry.actionItems.length
+                      ? Math.round(
+                          (entry.actionItems.filter((item) => item.text.trim() && item.done)
+                            .length /
+                            Math.max(
+                              1,
+                              entry.actionItems.filter((item) => item.text.trim()).length
+                            )) *
+                            100
+                        )
+                      : 0
+                  )}
+                >
+                  {entry.actionItems.filter((item) => item.text.trim() && !item.done).length} open
+                </span>
+              </div>
+
+              <div style={{ marginTop: 16 }}>
+                <ChecklistEditor
+                  items={entry.actionItems}
+                  addLabel="Add Action Item"
+                  placeholder="Add an action item"
+                  emptyMessage="No action items yet."
+                  onToggle={(index, checked) =>
+                    updateActionItems((items) => {
+                      items[index] = {
+                        ...(items[index] || { text: "", done: false }),
+                        done: checked,
+                      };
+                    })
+                  }
+                  onChangeText={(index, value) =>
+                    updateActionItems((items) => {
+                      items[index] = {
+                        ...(items[index] || { text: "", done: false }),
+                        text: value,
+                      };
+                    })
+                  }
+                  onAdd={() =>
+                    updateActionItems((items) => {
+                      items.push({ text: "", done: false });
+                    })
+                  }
+                  onRemove={(index) =>
+                    updateActionItems((items) => {
+                      items.splice(index, 1);
+                    })
+                  }
+                />
+              </div>
+
+              <div className="muted" style={{ marginTop: 10 }}>
+                This keeps action tracking inside the app. If you later want Google Tasks,
+                the safest path is syncing these action items outward instead of replacing them.
               </div>
             </div>
           )}
@@ -2228,6 +2594,71 @@ export default function App() {
         </div>
       )}
 
+      <div className="app-version">App version v{APP_VERSION}</div>
+
+      {aboutOpen && (
+        <div className="modal-backdrop" onClick={closeAbout}>
+          <div className="modal about-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="about-header">
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 22 }}>About This App</div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  Rush Family Daily Routine Tracker
+                </div>
+              </div>
+              <span className="badge">v{APP_VERSION}</span>
+            </div>
+
+            <div className="about-grid">
+              <div className="about-card">
+                <div style={{ fontWeight: 900 }}>Creator</div>
+                <div style={{ marginTop: 8 }}>{APP_CREATOR}</div>
+              </div>
+
+              <div className="about-card">
+                <div style={{ fontWeight: 900 }}>Release Status</div>
+                <div style={{ marginTop: 8 }}>
+                  {hasSupabaseConfig ? "Supabase sync enabled when online" : "Local-only mode"}
+                </div>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  {isOnline ? "Currently online" : "Currently offline"}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 18 }}>
+              Version History
+            </div>
+            <div className="version-history">
+              {VERSION_HISTORY.map((entry) => (
+                <div className="version-history-item" key={entry.version}>
+                <div className="row space-between">
+                  <div style={{ fontWeight: 900 }}>v{entry.version}</div>
+                  <div className="muted">{entry.title}</div>
+                </div>
+                  <div className="muted" style={{ marginTop: 6 }}>
+                    {entry.date} - {entry.commit === "working-tree"
+                      ? "Pending commit/tag"
+                      : `Commit ${entry.commit}`}
+                  </div>
+                  <div className="version-history-notes">
+                    {entry.notes.map((note) => (
+                      <p key={`${entry.version}-${note}`}>{note}</p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="row" style={{ marginTop: 18, justifyContent: "flex-end" }}>
+              <button className="btn-primary" onClick={closeAbout}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {verseOpen && (
         <div className="modal-backdrop" onClick={closeVerse}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -2347,6 +2778,53 @@ function ListEditor({ title, items, onAdd, onRename, onRemove }) {
           }}
         >
           Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChecklistEditor({
+  items,
+  onToggle,
+  onChangeText,
+  onAdd,
+  onRemove,
+  placeholder,
+  addLabel,
+  minRows = 0,
+  emptyMessage = "Nothing here yet.",
+}) {
+  const normalizedItems = normalizeChecklistItems(items, minRows);
+  const hasAnyText = normalizedItems.some((item) => item.text.trim());
+
+  return (
+    <div>
+      <div className="checklist-list">
+        {normalizedItems.map((item, index) => (
+          <div className="checklist-row" key={`${index}-${item.text}`}>
+            <input
+              type="checkbox"
+              checked={!!item.done}
+              onChange={(e) => onToggle(index, e.target.checked)}
+            />
+            <input
+              value={item.text}
+              onChange={(e) => onChangeText(index, e.target.value)}
+              placeholder={`${placeholder} #${index + 1}`}
+            />
+            <button className="btn-danger" onClick={() => onRemove(index)}>
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {!hasAnyText && <div className="muted">{emptyMessage}</div>}
+
+      <div style={{ marginTop: 12 }}>
+        <button className="btn-secondary" onClick={onAdd}>
+          {addLabel}
         </button>
       </div>
     </div>

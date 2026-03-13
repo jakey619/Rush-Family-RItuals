@@ -45,6 +45,34 @@ Preview the production build locally with:
 npm run preview
 ```
 
+## Versioning
+
+This project now uses semantic versioning, with `package.json` as the single source of truth for the app version. The running UI shows that same version so deployed builds are easy to identify.
+
+Release history is tracked in `CHANGELOG.md`, and each released version should also get a matching git tag so the codebase can be restored to that exact point later.
+
+Use these commands when you ship changes:
+
+```bash
+npm run version:show
+npm run version:patch
+npm run version:minor
+npm run version:major
+```
+
+- `patch`: bug fixes, wording tweaks, styling adjustments, small non-breaking changes
+- `minor`: new features or meaningful non-breaking behavior changes
+- `major`: breaking changes, data model shifts, or anything requiring coordinated rollout
+
+Recommended release flow:
+
+```bash
+npm run version:minor
+git add CHANGELOG.md package.json package-lock.json
+git commit -m "Release v0.2.0"
+git tag -a v0.2.0 -m "Release v0.2.0"
+```
+
 ## Deploy
 
 Any static host that can serve a Vite build will work, including Vercel, Netlify, GitHub Pages, Cloudflare Pages, or an S3-style static site.

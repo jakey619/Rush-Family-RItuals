@@ -22,8 +22,57 @@ export const VERSES = [
   { ref: "Galatians 6:9", text: "Let us not grow weary in doing good, for at the proper time we will reap a harvest." }
 ];
 
+export const PRIORITY_SLOTS = 3;
+
+export function parseDateKey(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function createChecklistItem(text = "", done = false) {
+  return { text, done };
+}
+
+export function createEmptyPriorities() {
+  return Array.from({ length: PRIORITY_SLOTS }, () => createChecklistItem());
+}
+
+export function normalizeChecklistItems(rawItems, minimum = 0) {
+  const normalized = Array.isArray(rawItems)
+    ? rawItems.map((item) => {
+        if (typeof item === "string") {
+          return createChecklistItem(item);
+        }
+
+        return createChecklistItem(
+          typeof item?.text === "string" ? item.text : "",
+          Boolean(item?.done)
+        );
+      })
+    : [];
+
+  return Array.from(
+    { length: Math.max(minimum, normalized.length) },
+    (_, index) => normalized[index] || createChecklistItem()
+  );
+}
+
+export function normalizePriorities(rawPriorities) {
+  return normalizeChecklistItems(rawPriorities, PRIORITY_SLOTS);
+}
+
+export function getOpenChecklistItems(rawItems) {
+  return normalizeChecklistItems(rawItems).filter(
+    (item) => item.text.trim() && !item.done
+  );
+}
+
+export function getOpenPriorities(rawPriorities) {
+  return getOpenChecklistItems(normalizePriorities(rawPriorities));
+}
+
 export function getVerseForDate(dateStr) {
-  const d = new Date(dateStr);
+  const d = parseDateKey(dateStr);
   const start = new Date(d.getFullYear(), 0, 0);
   const diff = d - start;
   const day = Math.floor(diff / 86400000);
@@ -31,11 +80,14 @@ export function getVerseForDate(dateStr) {
 }
 
 export function toDateKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function shiftDate(dateStr, days) {
-  const d = new Date(`${dateStr}T12:00:00`);
+  const d = parseDateKey(dateStr);
   d.setDate(d.getDate() + days);
   return toDateKey(d);
 }
@@ -204,7 +256,8 @@ export function emptyEntry(profile, date) {
     vitaminChecks: {},
     exerciseChecks: {},
 
-    nightPriorities: ["", "", ""],
+    nightPriorities: createEmptyPriorities(),
+    actionItems: [],
     nightDistraction: "",
     nightGoal: "",
     morningDistraction: "",
