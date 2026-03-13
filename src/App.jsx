@@ -1399,9 +1399,8 @@ export default function App() {
         <div className="brand">
           <h1>Rush Family Daily Routine Tracker</h1>
           <div className="subtext">
-            Offline-first - {hasSupabaseConfig ? "Supabase sync" : "Local-only mode"} -{" "}
-            {isOnline ? "Online" : "Offline"} -{" "}
-            {syncing ? "Syncing..." : "Ready"} - v{APP_VERSION}
+            {isOnline ? "Online" : "Offline"} - {syncing ? "Syncing..." : "Ready"} - v
+            {APP_VERSION}
           </div>
         </div>
 

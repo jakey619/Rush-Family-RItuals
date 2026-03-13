@@ -25,11 +25,11 @@ export const VERSION_HISTORY = [
   {
     version: "0.1.0",
     date: "2026-03-09",
-    commit: "0e8274c",
-    title: "GitHub Pages baseline",
+    commit: "b648624",
+    title: "Stabilized Pages baseline",
     notes: [
-      "Release baseline mapped to commit 0e8274c.",
-      "Published the app for the GitHub Pages root deployment path.",
+      "Release baseline mapped to commit b648624.",
+      "Stabilized the app and added GitHub Pages deployment support.",
     ],
   },
   {

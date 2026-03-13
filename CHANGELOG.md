@@ -33,7 +33,7 @@ This project uses Semantic Versioning. The current app version lives in `package
 
 ### Release Commit
 
-- `0e8274c`
+- `b648624`
 
 ### Notes
 
