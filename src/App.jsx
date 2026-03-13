@@ -2802,7 +2802,7 @@ function ChecklistEditor({
     <div>
       <div className="checklist-list">
         {normalizedItems.map((item, index) => (
-          <div className="checklist-row" key={`${index}-${item.text}`}>
+          <div className="checklist-row" key={index}>
             <input
               type="checkbox"
               checked={!!item.done}
