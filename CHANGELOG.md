@@ -11,11 +11,14 @@ This project uses Semantic Versioning. The current app version lives in `package
 - Added a smarter Overview dashboard with attention alerts, weekly wins, streaks, and per-person trend chips.
 - Added embedded per-person action item tracking inside the app.
 - Added checklist-style editing for priorities instead of fixed plain fields.
+- Added a crest watermark background behind the app.
 
 ### Improved
 
 - Extended the overview cards to show open action items, 7-day averages, and momentum.
 - Kept unfinished action items carrying forward with the rest of the daily planning flow.
+- Made the About modal scrollable with a themed close button.
+- Simplified the app subtitle to online status, sync state, and version.
 
 ### Notes
 

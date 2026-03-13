@@ -9,6 +9,7 @@ export const VERSION_HISTORY = [
     notes: [
       "Expanded the family dashboard with attention alerts, weekly wins, trends, and streaks.",
       "Turned priorities into a fuller checklist flow and added embedded per-person action items.",
+      "Includes the crest watermark, About modal polish, and the corrected priority carryover flow.",
       "Current app changes are not tagged yet because they are still uncommitted.",
     ],
   },

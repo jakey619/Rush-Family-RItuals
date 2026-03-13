@@ -69,8 +69,8 @@ Recommended release flow:
 ```bash
 npm run version:minor
 git add CHANGELOG.md package.json package-lock.json
-git commit -m "Release v0.2.0"
-git tag -a v0.2.0 -m "Release v0.2.0"
+git commit -m "Release v0.3.0"
+git tag -a v0.3.0 -m "Release v0.3.0"
 ```
 
 ## Deploy

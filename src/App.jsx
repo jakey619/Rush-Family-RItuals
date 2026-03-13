@@ -1431,12 +1431,6 @@ export default function App() {
     }
   }
 
-  function downloadAppFile() {
-    alert(
-      "Use your GitHub Pages site for the installed app. For file download, download the repo files or export a zip from GitHub."
-    );
-  }
-
   async function enableNotifications() {
     if (typeof Notification === "undefined") return;
 
@@ -1540,10 +1534,6 @@ export default function App() {
 
           <button className="btn-primary" onClick={exportSummary}>
             Export Day Summary
-          </button>
-
-          <button className="btn-secondary" onClick={downloadAppFile}>
-            Download App
           </button>
         </div>
       </div>
